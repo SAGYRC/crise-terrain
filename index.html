@@ -1,0 +1,944 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a6fcf">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Crise Yzeron – Terrain</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="logo_sagyrc.png">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+/* Charte reprise du site de l'observatoire participatif : vagues bleues, logo SAGYRC centré, Nunito, boutons arrondis */
+:root{
+  --bg:#f5f9fd; --surface:#ffffff; --tint:#e8f2fc; --line:#cfe0f1;
+  --ink:#0b3a78; --ink-soft:#3f5f86; --accent:#0a6fcf; --accent-2:#2fa4ec;
+  --wave-1:#0a6fcf; --wave-2:#2fa4ec; --wave-3:#5cc3c7; --on-accent:#ffffff;
+  --warn-bg:#fff4e0; --warn-ink:#7a4b00; --err-bg:#fdecea; --err-ink:#922b21; --ok-bg:#e6f4ea; --ok-ink:#1e6b3d;
+  --logo-bg:transparent; --ok:#2e9e4f; --mid:#f08c1a; --dry:#d93a2f;
+  --display:"Nunito",ui-rounded,"Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#08172b; --surface:#0f2440; --tint:#132d50; --line:#21426b;
+  --ink:#e4efff; --ink-soft:#a8c1e0; --accent:#3f9bf0; --accent-2:#5bb8f5;
+  --wave-1:#0b4f99; --wave-2:#1a74c2; --wave-3:#2e8f93;
+  --warn-bg:#3a2a0c; --warn-ink:#f3c97a; --err-bg:#3d1512; --err-ink:#f5b7b1; --ok-bg:#12321d; --ok-ink:#9fe0b3; --logo-bg:#ffffff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#08172b; --surface:#0f2440; --tint:#132d50; --line:#21426b;
+  --ink:#e4efff; --ink-soft:#a8c1e0; --accent:#3f9bf0; --accent-2:#5bb8f5;
+  --wave-1:#0b4f99; --wave-2:#1a74c2; --wave-3:#2e8f93;
+  --warn-bg:#3a2a0c; --warn-ink:#f3c97a; --err-bg:#3d1512; --err-ink:#f5b7b1; --ok-bg:#12321d; --ok-ink:#9fe0b3; --logo-bg:#ffffff; color-scheme:dark}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%}
+:root{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font:500 16px/1.45 var(--display);overscroll-behavior-y:contain}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0}
+.cache,[hidden]{display:none!important}
+:focus-visible{outline:3px solid var(--accent-2);outline-offset:3px}
+.app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+/* ---------- en-tête (vagues + logo centré) ---------- */
+.top{position:relative}
+.wave{display:block;width:100%;height:34px}
+.brand{display:flex;flex-direction:column;align-items:center;margin-top:-18px;padding:0 16px;position:relative}
+.logo-chip{display:inline-block;background:var(--logo-bg);border-radius:14px;padding:6px 10px}
+.logo{display:block;width:140px;max-width:100%;height:auto}
+.tagline{font-size:12.5px;color:var(--accent);font-weight:700;margin-top:2px}
+.nav-haut{position:absolute;inset:0;display:flex;justify-content:space-between;align-items:flex-start;padding:4px 16px 0;pointer-events:none}
+.rond{pointer-events:auto;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:grid;place-items:center;margin-top:4px}
+.badge{pointer-events:auto;margin-top:12px;display:inline-flex;align-items:center;padding:4px 12px;border-radius:99px;font-weight:900;font-size:13px;background:#7f8c8d;color:#fff;white-space:nowrap}
+.maj{text-align:center;font-size:12.5px;color:var(--ink-soft);margin-top:2px}
+.bandeau{margin:8px 16px 0;border-radius:12px;padding:9px 12px;font-size:13.5px;font-weight:700}
+.fraicheur{background:var(--warn-bg);color:var(--warn-ink)}
+.fraicheur.grave{background:var(--err-bg);color:var(--err-ink)}
+.exo{background:#6c3483;color:#fff;text-align:center;letter-spacing:1.5px;font-weight:900}
+/* ---------- contenu ---------- */
+main{flex:1;padding:12px 16px calc(84px + env(safe-area-inset-bottom));display:flex;flex-direction:column}
+.ecran{display:flex;flex-direction:column;gap:12px}
+h2{font-size:25px;font-weight:900;line-height:1.1;margin:4px 0 0}
+h3{font-size:17px;font-weight:900;margin:8px 0 0}
+p{margin:0}
+.carte{background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:12px 14px}
+.info{display:flex;gap:12px;background:var(--tint);border-radius:14px;padding:12px 14px}
+.niveau{border-radius:18px;padding:16px;color:#fff;background:#7f8c8d}
+.niveau small{display:block;font-size:12.5px;font-weight:800;opacity:.92;text-transform:uppercase;letter-spacing:.8px}
+.niveau b{display:block;font-size:26px;font-weight:900;line-height:1.1;margin:2px 0 6px}
+.niveau p{font-size:14px;opacity:.95}
+.niveau.clair{color:#3d2f00}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi{background:var(--tint);border-radius:14px;padding:12px;text-align:left;min-width:0}
+.kpi span{display:block;font-size:13px;color:var(--ink-soft);font-weight:700}
+.kpi b{display:block;font-size:23px;font-weight:900;margin-top:2px}
+.kpi em{font-style:normal;font-size:12.5px;color:var(--ink-soft);line-height:1.3;display:block}
+.kpi.alerte b{color:var(--dry)}
+.bandeau-routes{display:flex;align-items:center;gap:12px;width:100%;background:var(--err-bg);color:var(--err-ink);border-radius:14px;padding:12px 14px;text-align:left}
+.bandeau-routes b{display:block;font-size:16px;font-weight:900}
+.bandeau-routes span{font-size:13.5px}
+.bandeau-routes.ok{background:var(--ok-bg);color:var(--ok-ink)}
+.fleche{margin-left:auto;font-size:24px;font-weight:900}
+.infos{list-style:none;margin:0;padding:0}
+.infos li{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.infos li:last-child{border-bottom:0}
+.infos time{flex:none;width:46px;font-weight:900;font-size:14px;font-variant-numeric:tabular-nums}
+.infos p{font-size:14.5px}
+.infos p small{display:block;color:var(--ink-soft);font-size:13px}
+.vide{color:var(--ink-soft);font-size:14.5px;text-align:center;padding:16px 8px}
+.seg{display:flex;background:var(--tint);border-radius:99px;padding:4px}
+.seg button{flex:1;padding:9px 4px;border-radius:99px;font-weight:800;color:var(--ink-soft);font-size:15px}
+.seg button.on{background:var(--accent);color:var(--on-accent)}
+.mes{display:flex;align-items:center;gap:12px}
+.mes .nom{flex:1;min-width:0}
+.mes .nom b{display:block;font-size:15.5px;font-weight:900;line-height:1.25}
+.mes .nom span{font-size:13px;color:var(--ink-soft)}
+.mes .val{text-align:right;flex:none}
+.mes .val b{font-size:22px;font-weight:900}
+.mes .val span{display:block;font-size:12.5px;color:var(--ink-soft)}
+.tend{display:inline-block;width:22px;text-align:center;font-weight:900}
+.tend.monte{color:var(--dry)}.tend.baisse{color:var(--ok)}.tend.stable{color:var(--ink-soft)}
+.jauge{position:relative;height:8px;border-radius:4px;background:var(--tint);margin-top:10px}
+.jauge i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--accent)}
+.jauge u{position:absolute;top:-3px;width:3px;height:14px;border-radius:2px;background:var(--mid)}
+.jauge u.r{background:var(--dry)}
+.jlib{font-size:12px;color:var(--ink-soft);margin-top:4px}
+.puce{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:900;background:var(--tint);color:var(--ink)}
+.puce.N1{background:#fcf3cf;color:#7d6608}.puce.N2{background:#fae5d3;color:#a04000}.puce.N2bis{background:#fadbd8;color:#922b21}.puce.N3{background:#7b0000;color:#fff}
+.table{width:100%;border-collapse:collapse;font-size:14.5px;margin-top:6px}
+.table th{text-align:right;font-size:12.5px;color:var(--ink-soft);font-weight:800;padding:4px 6px}
+.table th:first-child,.table td:first-child{text-align:left}
+.table td{padding:8px 6px;border-top:1px solid var(--line);text-align:right}
+.note{font-size:13px;color:var(--ink-soft)}
+/* carte */
+#ecCarte{position:fixed;left:0;right:0;top:var(--haut,120px);bottom:calc(64px + env(safe-area-inset-bottom));max-width:480px;margin:0 auto}
+#carte{position:absolute;inset:0}
+.couches{position:absolute;left:8px;right:8px;top:8px;z-index:500;display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.couches::-webkit-scrollbar{display:none}
+.couches button{flex:none;background:var(--surface);border:1.5px solid var(--line);border-radius:99px;padding:7px 13px;font-size:13.5px;font-weight:800;color:var(--ink-soft)}
+.couches button.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btpos{position:absolute;right:10px;bottom:16px;z-index:500;width:48px;height:48px;border-radius:50%;background:var(--surface);border:1px solid var(--line);display:grid;place-items:center;color:var(--accent)}
+.fiche{position:absolute;left:8px;right:8px;bottom:8px;z-index:600;background:var(--surface);border-radius:16px;box-shadow:0 6px 20px rgba(5,30,60,.3);padding:14px 16px;max-height:55%;overflow:auto}
+.fiche .x{position:absolute;right:8px;top:6px;width:36px;height:36px;font-size:24px;color:var(--ink-soft)}
+.fiche small{font-size:12.5px;color:var(--ink-soft);font-weight:800;text-transform:uppercase;letter-spacing:.6px}
+.fiche b{display:block;font-size:18px;font-weight:900;margin:2px 36px 6px 0}
+.fiche p{margin:4px 0;font-size:14.5px}
+.legende{position:absolute;left:8px;bottom:16px;z-index:500;background:var(--surface);border-radius:12px;padding:6px 9px;font-size:12px}
+.legende i{display:inline-block;width:14px;height:10px;margin-right:4px;vertical-align:middle;border-radius:2px}
+/* routes */
+.recherche{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:99px;background:var(--surface);font-size:16px}
+.commune{background:var(--surface);border:1.5px solid var(--line);border-radius:14px;overflow:hidden}
+.commune>div{display:flex;align-items:center;padding:12px 14px;font-weight:900;font-size:16px}
+.commune>div span{margin-left:auto;background:var(--err-bg);color:var(--err-ink);border-radius:99px;padding:1px 10px;font-size:13px}
+.commune ul{list-style:none;margin:0;padding:0 14px 6px}
+.commune li button{display:flex;width:100%;gap:8px;align-items:center;padding:10px 0;border-top:1px solid var(--line);text-align:left;font-size:15px}
+.commune li button em{margin-left:auto;font-style:normal;color:var(--accent);font-size:13.5px;font-weight:800}
+.retour{align-self:flex-start;color:var(--accent);font-weight:800;font-size:15px}
+/* formulaire (signaler) : choix en liste comme l'observatoire */
+.choices{display:flex;flex-direction:column;gap:8px}
+.choice{display:flex;gap:10px;align-items:center;background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:11px 14px;cursor:pointer;width:100%;text-align:left}
+.choice.on{border-color:var(--accent);background:var(--tint)}
+.choice .ctext{flex:1;min-width:0}
+.choice .ctext b{display:block;font-size:16px;font-weight:900}
+.choice .ctext span{font-size:13.5px;color:var(--ink-soft);line-height:1.35}
+.radio{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--line)}
+.choice.on .radio{border-color:var(--accent);box-shadow:inset 0 0 0 4px var(--surface),inset 0 0 0 12px var(--accent)}
+.dot{flex:none;width:20px;height:20px;border-radius:50%;background:var(--c)}
+.types{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.types .choice{padding:12px 12px}
+.types .choice b{font-size:15.5px}
+.grav{display:flex;gap:8px}
+.grav .choice{justify-content:center;padding:11px 6px;gap:8px}
+.grav .choice b{font-size:15.5px;font-weight:900}
+label{display:block;font-size:15px;font-weight:900;margin:6px 2px 0}
+.aide{font-size:13px;color:var(--ink-soft);font-weight:500}
+input[type=text],input[type=email],input[type=password],select,textarea{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);font:500 16px var(--display)}
+textarea{min-height:100px;resize:vertical}
+.rang{display:flex;gap:10px}
+.rang>*{flex:1;min-width:0}
+.place{display:flex;gap:12px;align-items:center;background:var(--tint);border-radius:14px;padding:10px 12px}
+.pin{flex:none;width:42px;height:42px;border-radius:50%;background:var(--surface);display:grid;place-items:center;color:var(--accent)}
+.place div{flex:1;font-size:14.5px}
+.place b{font-weight:900}
+.drop{border:2px dashed var(--line);border-radius:14px;background:var(--tint);padding:16px 12px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px;width:100%}
+.drop b{font-size:17px;font-weight:900}
+.drop span{color:var(--ink-soft);font-size:14px}
+.apercu{position:relative}
+.apercu img{display:block;width:100%;max-height:260px;object-fit:cover;border-radius:14px}
+.apercu button{position:absolute;top:10px;right:10px;width:38px;height:38px;border-radius:50%;background:rgba(5,30,60,.8);color:#fff;font-size:20px}
+.btn{appearance:none;border:0;width:100%;min-height:52px;border-radius:99px;background:var(--accent);color:var(--on-accent);font:800 18px var(--display);display:flex;align-items:center;justify-content:center;gap:10px;padding:0 18px}
+.btn:active{transform:scale(.98)}
+.btn[disabled]{opacity:.4}
+.btn.ghost{background:transparent;color:var(--accent);border:2px solid var(--accent)}
+.btn.petit{min-height:40px;font-size:15px;width:auto}
+.lien{color:var(--accent);font-weight:800;font-size:14.5px;padding:6px 0;text-decoration:underline}
+.msg{padding:11px 14px;border-radius:14px;font-weight:700;font-size:14.5px}
+.msg.ok{background:var(--ok-bg);color:var(--ok-ink)}.msg.err{background:var(--err-bg);color:var(--err-ink)}.msg.info{background:var(--tint);color:var(--ink)}
+.etat{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12.5px;font-weight:900;white-space:nowrap}
+.etat.envoye{background:var(--tint);color:var(--ink-soft)}.etat.recu{background:#d6eaf8;color:#1a5276}.etat.pris{background:#fae5d3;color:#a04000}.etat.clos{background:var(--ok-bg);color:var(--ok-ink)}
+/* barre d'onglets */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:1000;background:var(--surface);border-top:1.5px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom);max-width:480px;margin:0 auto}
+nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 7px;font-size:12px;font-weight:800;color:var(--ink-soft)}
+nav button svg{width:24px;height:24px}
+nav button.on{color:var(--accent)}
+/* connexion */
+.connexion main{gap:12px}
+/* menu */
+.voile{position:fixed;inset:0;background:rgba(5,30,60,.45);z-index:2000;display:flex;align-items:flex-end;justify-content:center}
+.feuille{background:var(--surface);width:100%;max-width:480px;border-radius:18px 18px 0 0;padding:10px 0 calc(10px + env(safe-area-inset-bottom))}
+.feuille .qui{padding:8px 18px 12px;border-bottom:1px solid var(--line);font-size:14px;color:var(--ink-soft)}
+.feuille .qui b{display:block;color:var(--ink);font-size:16px;font-weight:900}
+.feuille button{display:block;width:100%;text-align:left;padding:14px 18px;font-weight:800;font-size:16px}
+.agent{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.agent:first-child{border-top:0}
+.agent div{flex:1;min-width:0}
+.agent div b{display:block;font-size:15px;font-weight:900}
+.agent div span{font-size:13px;color:var(--ink-soft);word-break:break-all}
+.leaflet-container{font:inherit}
+</style>
+</head>
+<body>
+
+<div class="app">
+<div class="top" id="entete">
+  <svg class="wave" viewBox="0 0 480 70" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M0 0H480V30C400 55 330 10 240 30C150 50 80 65 0 45Z" fill="var(--wave-2)" opacity=".55"/>
+    <path d="M0 0H480V18C390 40 320 2 230 20C140 38 70 45 0 30Z" fill="var(--wave-1)"/>
+  </svg>
+  <div class="brand">
+    <span class="logo-chip"><img class="logo" src="logo_sagyrc.png" alt="SAGYRC – Bassin de l'Yzeron" width="140" height="56"></span>
+    <div class="tagline">Crise Yzeron · agents de terrain</div>
+    <div class="maj cache" id="majTexte"></div>
+  </div>
+  <div class="nav-haut cache" id="navHaut">
+    <span class="badge" id="badge">…</span>
+    <button class="rond" id="btMenu" type="button" aria-label="Menu"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </div>
+  <div id="exo" class="bandeau exo cache">EXERCICE – SITUATION FICTIVE</div>
+  <div id="fraicheur" class="bandeau fraicheur cache"></div>
+</div>
+
+<!-- ================= connexion ================= -->
+<main id="ecConnexion" class="connexion cache">
+  <div class="ecran">
+    <h2>Connexion</h2>
+    <p class="aide">Réservé aux agents du SAGYRC déclarés par l'astreinte.</p>
+    <div id="blocConnexion" class="ecran">
+      <label for="email">Adresse e-mail</label><input id="email" type="email" autocomplete="username" inputmode="email">
+      <label for="mdp">Mot de passe</label><input id="mdp" type="password" autocomplete="current-password">
+      <button class="btn" id="btConnexion" type="button">Se connecter</button>
+      <div style="display:flex;justify-content:space-between">
+        <button class="lien" id="btCreer" type="button">Première connexion</button>
+        <button class="lien" id="btOubli" type="button">Mot de passe oublié</button>
+      </div>
+    </div>
+    <div id="blocNouveau" class="ecran cache">
+      <label for="mdp1">Nouveau mot de passe <span class="aide">(8 caractères minimum)</span></label><input id="mdp1" type="password" autocomplete="new-password">
+      <button class="btn" id="btNouveau" type="button">Enregistrer le mot de passe</button>
+    </div>
+    <div id="msgConnexion"></div>
+  </div>
+</main>
+
+<!-- ================= application ================= -->
+<div id="appli" class="cache">
+<main>
+  <!-- Situation -->
+  <section id="ecSituation" class="ecran">
+    <div class="niveau" id="carteNiveau"><small>Niveau de vigilance</small><b id="nivLib">…</b><p id="nivDetail"></p></div>
+    <div class="kpis">
+      <button class="kpi" data-aller="mesures:rivieres"><span>Rivières</span><b id="kRiv">–</b><em id="kRivD"></em></button>
+      <button class="kpi" data-aller="mesures:echelles"><span>Échelles</span><b id="kEch">–</b><em id="kEchD"></em></button>
+      <button class="kpi" data-aller="mesures:pluie"><span>Pluie prévue (6 h)</span><b id="kPluie">–</b><em id="kPluieD"></em></button>
+      <button class="kpi" data-aller="carte:zone"><span>Zone inondable</span><b id="kZone">–</b><em id="kZoneD"></em></button>
+    </div>
+    <button class="bandeau-routes" id="bandeauRoutes"><div><b id="rTitre">Routes coupées</b><span id="rDetail"></span></div><span class="fleche">›</span></button>
+    <h3>Dernières informations</h3>
+    <div class="carte" style="padding:2px 14px"><ul class="infos" id="infos"></ul></div>
+  </section>
+
+  <!-- Mesures -->
+  <section id="ecMesures" class="ecran cache">
+    <h2>Mesures</h2>
+    <div class="seg" id="segMesures"><button data-v="rivieres" class="on">Rivières</button><button data-v="echelles">Échelles</button><button data-v="pluie">Pluie</button></div>
+    <div id="mesRivieres" class="ecran"></div>
+    <div id="mesEchelles" class="ecran cache"></div>
+    <div id="mesPluie" class="ecran cache"></div>
+  </section>
+
+  <!-- Routes coupées -->
+  <section id="ecRoutes" class="ecran cache">
+    <button class="retour" data-aller="situation">‹ Situation</button>
+    <h2>Routes coupées</h2>
+    <input class="recherche" id="rechRoute" type="search" placeholder="Rechercher une rue, une commune…">
+    <div id="listeRoutes" class="ecran"></div>
+    <p class="note">Tronçons inondés d'après le scénario de crue retenu par l'astreinte (modélisation), à confirmer sur le terrain.</p>
+  </section>
+
+  <!-- Signaler -->
+  <section id="ecSignaler" class="ecran cache">
+    <h2>Signaler un problème</h2>
+    <label>Type de problème</label>
+    <div class="types" id="types"></div>
+    <div id="blocNiveau" class="cache">
+      <div class="rang">
+        <div><label for="sEchelle">Échelle <span class="aide">(facultatif)</span></label><select id="sEchelle"></select></div>
+        <div style="flex:.7"><label for="sHauteur">Hauteur lue (m)</label><input id="sHauteur" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 1,85"></div>
+      </div>
+    </div>
+    <label>Gravité</label>
+    <div class="grav" id="grav">
+      <button class="choice" data-g="gene" type="button"><span class="dot" style="--c:#e2b007"></span><b>Gêne</b></button>
+      <button class="choice" data-g="risque" type="button"><span class="dot" style="--c:var(--mid)"></span><b>Risque</b></button>
+      <button class="choice" data-g="danger" type="button"><span class="dot" style="--c:var(--dry)"></span><b>Danger</b></button>
+    </div>
+    <label>Position</label>
+    <div class="place"><span class="pin"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-7 7-12a7 7 0 10-14 0c0 5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><div id="posTexte">Recherche de la position…</div><button class="lien" id="btPos" type="button">Actualiser</button></div>
+    <label>Photo <span class="aide">(facultatif)</span></label>
+    <button class="drop" id="btPhoto" type="button"><b>Prendre une photo</b><span>ou en choisir une dans la galerie</span></button>
+    <div class="apercu cache" id="apercu"><img id="apercuPhoto" alt="Photo jointe"><button id="btSupPhoto" type="button" aria-label="Retirer la photo">×</button></div>
+    <input id="sPhoto" type="file" accept="image/*" capture="environment" class="cache">
+    <label for="sDesc">Précisions</label>
+    <textarea id="sDesc" placeholder="Lieu exact, ce que vous observez, besoin d'intervention…"></textarea>
+    <button class="btn" id="btEnvoyer" type="button">Envoyer à l'astreinte</button>
+    <div id="msgSignal"></div>
+  </section>
+
+  <!-- Mes signalements -->
+  <section id="ecMesSig" class="ecran cache">
+    <h2>Mes signalements</h2>
+    <div id="listeMesSig" class="ecran"></div>
+  </section>
+
+  <!-- Agents (astreinte) -->
+  <section id="ecAgents" class="ecran cache">
+    <h2>Agents de terrain</h2>
+    <div class="carte ecran">
+      <h3 style="margin:0">Ajouter un agent</h3>
+      <label for="aNom">Nom</label><input id="aNom" type="text">
+      <label for="aMail">E-mail</label><input id="aMail" type="email">
+      <label for="aRole">Rôle</label><select id="aRole"><option value="agent">Agent de terrain</option><option value="astreinte">Astreinte (publie la situation, gère les agents)</option></select>
+      <button class="btn" id="btAjoutAgent" type="button">Ajouter</button>
+      <p class="note">L'agent ouvre ensuite le site et choisit « Première connexion » avec cette adresse pour créer son mot de passe.</p>
+      <div id="msgAgent"></div>
+    </div>
+    <div class="carte" id="listeAgents"></div>
+  </section>
+</main>
+
+<!-- Carte (hors du flux pour occuper l'écran) -->
+<section id="ecCarte" class="cache">
+  <div id="carte"></div>
+  <div class="couches" id="couches">
+    <button data-c="zone" class="on">Zone inondable</button>
+    <button data-c="routes" class="on">Routes coupées</button>
+    <button data-c="mesures" class="on">Mesures</button>
+    <button data-c="ouvrages" class="on">Ouvrages et signalements</button>
+  </div>
+  <div class="legende" id="legende"></div>
+  <button class="btpos" id="btMaPos" aria-label="Ma position"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+  <div class="fiche cache" id="fiche"><button class="x" id="ficheX" aria-label="Fermer">×</button><div id="ficheCorps"></div></div>
+</section>
+
+<nav id="nav">
+  <button data-aller="situation" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 12 4l9 7v9H3z"/><path d="M9 20v-6h6v6"/></svg>Situation</button>
+  <button data-aller="mesures"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17c3 0 3-3 6-3s3 3 6 3 3-3 6-3"/><path d="M3 11c3 0 3-3 6-3s3 3 6 3 3-3 6-3"/></svg>Mesures</button>
+  <button data-aller="carte"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Carte</button>
+  <button data-aller="signaler"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18v.5"/></svg>Signaler</button>
+</nav>
+</div>
+</div>
+
+<div class="voile cache" id="voile"><div class="feuille">
+  <div class="qui" id="menuQui"></div>
+  <button data-menu="messig">Mes signalements</button>
+  <button data-menu="agents" id="menuAgents" class="cache">Gérer les agents</button>
+  <button data-menu="actualiser">Actualiser maintenant</button>
+  <button data-menu="deco">Se déconnecter</button>
+  <button data-menu="fermer" style="color:var(--ink-soft)">Fermer</button>
+</div></div>
+
+<script>
+"use strict";
+var SUPABASE_URL = "https://rfojuesvlasdmnuflkfh.supabase.co";
+var SUPABASE_CLE = "sb_publishable_Yny_zyyIompw7vu3jzftIw_QrTxRoB3";
+var PERIODE_MS = 30000;
+var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_CLE, {auth: {persistSession: true, autoRefreshToken: true, detectSessionInUrl: true}});
+
+var TYPES = [
+  {c: "embacle", l: "Embâcle"},
+  {c: "arbre", l: "Arbre tombé"},
+  {c: "clapet", l: "Clapet bloqué"},
+  {c: "debordement", l: "Débordement"},
+  {c: "route", l: "Route inondée"},
+  {c: "erosion", l: "Érosion de berge"},
+  {c: "niveau", l: "Niveau anormal"},
+  {c: "autre", l: "Autre"}
+];
+var TYPES_LIB = {}; TYPES.forEach(function (t) { TYPES_LIB[t.c] = t.l; });
+var GRAV_LIB = {gene: "Gêne", risque: "Risque", danger: "Danger"};
+var ETAT_LIB = {envoye: ["Envoyé", "envoye"], recu: ["Reçu par l'astreinte", "recu"], "pris en charge": ["Pris en charge", "pris"], clos: ["Traité", "clos"]};
+
+var etat = {moi: null, agent: null, sit: null, versions: {}, zone: null, routes: null, ouvrages: null, ecran: "situation",
+            sig: {type: null, gravite: null, pos: null, photo: null}, timer: null, carte: null, couches: {}, posMarq: null};
+
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]; }); }
+function nb(x, d) { return x == null ? "–" : Number(x).toLocaleString("fr-FR", {minimumFractionDigits: d, maximumFractionDigits: d}); }
+function heure(iso) { if (!iso) return ""; var d = new Date(iso); return d.toLocaleTimeString("fr-FR", {hour: "2-digit", minute: "2-digit"}); }
+function quand(iso) {
+  if (!iso) return "";
+  var d = new Date(iso), m = Math.round((Date.now() - d) / 60000);
+  if (m < 1) return "à l'instant";
+  if (m < 60) return "il y a " + m + " min";
+  var auj = new Date().toDateString() === d.toDateString();
+  return (auj ? "" : d.toLocaleDateString("fr-FR", {day: "2-digit", month: "2-digit"}) + " ") + heure(iso);
+}
+function clair(c) {
+  if (!c || c[0] !== "#" || c.length < 7) return false;
+  var r = parseInt(c.substr(1, 2), 16), g = parseInt(c.substr(3, 2), 16), b = parseInt(c.substr(5, 2), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 165;
+}
+function msg(el, texte, type) { $(el).innerHTML = texte ? '<div class="msg ' + (type || "info") + '">' + esc(texte) + "</div>" : ""; }
+function stocker(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+function lire(k) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+
+/* ======================= connexion ======================= */
+function ecranConnexion(texte, type) {
+  $("appli").classList.add("cache"); $("ecConnexion").classList.remove("cache"); $("navHaut").classList.add("cache"); $("majTexte").classList.add("cache");
+  $("blocConnexion").classList.remove("cache"); $("blocNouveau").classList.add("cache");
+  msg("msgConnexion", texte, type);
+}
+$("btConnexion").onclick = function () {
+  var e = $("email").value.trim(), m = $("mdp").value;
+  if (!e || !m) return msg("msgConnexion", "Indiquez votre e-mail et votre mot de passe.", "err");
+  $("btConnexion").disabled = true;
+  sb.auth.signInWithPassword({email: e, password: m}).then(function (r) {
+    $("btConnexion").disabled = false;
+    if (r.error) return msg("msgConnexion", /confirm/i.test(r.error.message) ? "Adresse pas encore confirmée : ouvrez le lien reçu par e-mail." : "E-mail ou mot de passe incorrect.", "err");
+    demarrer(r.data.session);
+  });
+};
+$("mdp").addEventListener("keydown", function (ev) { if (ev.key === "Enter") $("btConnexion").click(); });
+$("btCreer").onclick = function () {
+  var e = $("email").value.trim(), m = $("mdp").value;
+  if (!e || m.length < 8) return msg("msgConnexion", "Saisissez votre adresse e-mail professionnelle et choisissez un mot de passe d'au moins 8 caractères, puis touchez à nouveau « Première connexion ».", "info");
+  sb.auth.signUp({email: e, password: m, options: {emailRedirectTo: location.origin + location.pathname}}).then(function (r) {
+    if (r.error) return msg("msgConnexion", r.error.message, "err");
+    if (r.data.session) return demarrer(r.data.session);
+    msg("msgConnexion", "Compte créé. Ouvrez le lien de confirmation reçu par e-mail, puis connectez-vous.", "ok");
+  });
+};
+$("btOubli").onclick = function () {
+  var e = $("email").value.trim();
+  if (!e) return msg("msgConnexion", "Saisissez d'abord votre adresse e-mail.", "info");
+  sb.auth.resetPasswordForEmail(e, {redirectTo: location.origin + location.pathname}).then(function (r) {
+    msg("msgConnexion", r.error ? r.error.message : "Un e-mail de réinitialisation vient d'être envoyé.", r.error ? "err" : "ok");
+  });
+};
+$("btNouveau").onclick = function () {
+  var m = $("mdp1").value;
+  if (m.length < 8) return msg("msgConnexion", "8 caractères minimum.", "err");
+  sb.auth.updateUser({password: m}).then(function (r) {
+    if (r.error) return msg("msgConnexion", r.error.message, "err");
+    sb.auth.getSession().then(function (s) { demarrer(s.data.session); });
+  });
+};
+sb.auth.onAuthStateChange(function (ev, session) {
+  if (ev === "PASSWORD_RECOVERY") {
+    $("appli").classList.add("cache"); $("ecConnexion").classList.remove("cache");
+    $("blocConnexion").classList.add("cache"); $("blocNouveau").classList.remove("cache");
+    msg("msgConnexion", "Choisissez votre nouveau mot de passe.", "info");
+  }
+});
+
+function demarrer(session) {
+  if (!session) return ecranConnexion();
+  etat.moi = session.user;
+  sb.from("terrain_agents").select("email,nom,role,actif").eq("email", session.user.email.toLowerCase()).maybeSingle().then(function (r) {
+    if (r.error || !r.data || !r.data.actif) {
+      sb.auth.signOut();
+      return ecranConnexion("Votre compte (" + session.user.email + ") n'est pas autorisé. Demandez à l'astreinte du SAGYRC de vous ajouter à la liste des agents.", "err");
+    }
+    etat.agent = r.data;
+    $("ecConnexion").classList.add("cache"); $("appli").classList.remove("cache"); $("navHaut").classList.remove("cache"); $("majTexte").classList.remove("cache");
+    $("menuQui").innerHTML = "<b>" + esc(r.data.nom) + "</b>" + esc(r.data.email) + (r.data.role === "astreinte" ? " · astreinte" : "");
+    $("menuAgents").classList.toggle("cache", r.data.role !== "astreinte");
+    construireSignaler(); remplirDepuisCache(); actualiser(); envoyerFile();
+    clearInterval(etat.timer); etat.timer = setInterval(actualiser, PERIODE_MS);
+    aller(location.hash.replace("#", "") || "situation");
+  });
+}
+
+/* ======================= navigation ======================= */
+var ECRANS = {situation: "ecSituation", mesures: "ecMesures", carte: "ecCarte", routes: "ecRoutes", signaler: "ecSignaler", messig: "ecMesSig", agents: "ecAgents"};
+function aller(cible) {
+  var p = String(cible).split(":"), e = p[0], s = p[1];
+  if (!ECRANS[e]) e = "situation";
+  etat.ecran = e;
+  Object.keys(ECRANS).forEach(function (k) { $(ECRANS[k]).classList.toggle("cache", k !== e); });
+  document.querySelector("#appli main").classList.toggle("cache", e === "carte");
+  [].forEach.call(document.querySelectorAll("nav button"), function (b) {
+    var a = b.getAttribute("data-aller"); b.classList.toggle("on", a === e || (a === "situation" && e === "routes"));
+  });
+  if (e === "mesures" && s) segMesures(s);
+  if (e === "carte") { majHauteur(); initCarte(); setTimeout(function () { etat.carte.invalidateSize(); if (s === "zone") cadrerZone(); }, 60); }
+  if (e === "signaler" && !etat.sig.pos) localiser();
+  if (e === "messig") chargerMesSig();
+  if (e === "agents") chargerAgents();
+  if (history.replaceState) history.replaceState(null, "", "#" + e);
+  window.scrollTo(0, 0);
+}
+document.addEventListener("click", function (ev) {
+  var b = ev.target.closest("[data-aller]"); if (b) { ev.preventDefault(); aller(b.getAttribute("data-aller")); }
+});
+$("bandeauRoutes").onclick = function () { aller("routes"); };
+function majHauteur() {
+  var h = $("entete").getBoundingClientRect().bottom + 8;
+  document.documentElement.style.setProperty("--haut", h + "px");
+}
+window.addEventListener("resize", function () { if (etat.ecran === "carte") majHauteur(); });
+
+$("btMenu").onclick = function () { $("voile").classList.remove("cache"); };
+$("voile").onclick = function (ev) {
+  var b = ev.target.closest("[data-menu]");
+  if (ev.target === $("voile") || b) $("voile").classList.add("cache");
+  if (!b) return;
+  var m = b.getAttribute("data-menu");
+  if (m === "messig" || m === "agents") aller(m);
+  if (m === "actualiser") { etat.versions = {}; actualiser(); }
+  if (m === "deco") { clearInterval(etat.timer); sb.auth.signOut().then(function () { stocker("sit", null); ecranConnexion("Vous êtes déconnecté.", "info"); }); }
+};
+
+/* ======================= données ======================= */
+function remplirDepuisCache() {
+  var c = lire("sit"); if (c && c.situation) { etat.sit = c.situation; afficher(); }
+}
+function actualiser() {
+  return sb.from("terrain_publication").select("cle,version,maj,contenu").eq("cle", "situation").maybeSingle().then(function (r) {
+    if (r.error) { fraicheur(null, "Connexion au serveur impossible – données affichées : dernière version reçue."); return; }
+    if (!r.data) { etat.sit = null; afficher(); return; }
+    etat.sit = r.data.contenu; stocker("sit", {situation: etat.sit});
+    var v = etat.sit.versions || {}, aCharger = [];
+    ["zone", "routes", "ouvrages"].forEach(function (k) { if (v[k] && etat.versions[k] !== v[k]) aCharger.push(k); });
+    afficher();
+    if (!aCharger.length) return;
+    return sb.from("terrain_publication").select("cle,version,contenu").in("cle", aCharger).then(function (r2) {
+      if (r2.error) return;
+      r2.data.forEach(function (x) { etat[x.cle] = x.contenu; etat.versions[x.cle] = x.version; });
+      afficher(); dessinerCarte();
+    });
+  });
+}
+document.addEventListener("visibilitychange", function () { if (!document.hidden && etat.agent) { actualiser(); envoyerFile(); } });
+window.addEventListener("online", function () { if (etat.agent) { actualiser(); envoyerFile(); } });
+
+function fraicheur(sit, erreur) {
+  var f = $("fraicheur");
+  if (erreur) { f.textContent = erreur; f.className = "fraicheur grave"; return; }
+  if (!sit) { f.className = "fraicheur cache"; return; }
+  var m = (Date.now() - new Date(sit.maj)) / 60000;
+  if (m > 10) { f.textContent = "Situation non mise à jour depuis " + quand(sit.maj).replace("il y a ", "") + " : le relais de l'astreinte est peut-être arrêté. Appelez l'astreinte en cas de doute."; f.className = "fraicheur grave"; }
+  else if (m > 3) { f.textContent = "Dernière mise à jour " + quand(sit.maj) + "."; f.className = "fraicheur"; }
+  else f.className = "fraicheur cache";
+}
+
+/* ======================= affichage ======================= */
+function niveauInfo(s) {
+  if (!s || !s.episode || !s.niveau) return {lib: "Pas d'épisode de crue en cours", court: "Normal", coul: "#1e8449", detail: "L'astreinte n'a pas ouvert d'épisode de crise."};
+  var n = s.niveau;
+  return {lib: n.libelle, court: n.code === "NORMAL" ? "Normal" : n.code, coul: n.couleur || "#7f8c8d",
+          detail: "Depuis " + quand(n.depuis) + (n.motif ? " – " + n.motif : "")};
+}
+function tendance(v, avant) {
+  if (v == null || avant == null) return '<span class="tend stable">·</span>';
+  var d = v - avant, ref = Math.max(Math.abs(avant), 50);
+  if (d / ref > 0.05) return '<span class="tend monte" title="en hausse">↑</span>';
+  if (d / ref < -0.05) return '<span class="tend baisse" title="en baisse">↓</span>';
+  return '<span class="tend stable" title="stable">→</span>';
+}
+function tendEch(t) {
+  t = (t || "").toLowerCase();
+  if (/hausse|mont/.test(t)) return '<span class="tend monte">↑</span>';
+  if (/baiss|descen/.test(t)) return '<span class="tend baisse">↓</span>';
+  if (/stab/.test(t)) return '<span class="tend stable">→</span>';
+  return "";
+}
+function m3s(qls) { if (qls == null) return "–"; var q = Math.max(0, qls) / 1000; return nb(q, q < 10 ? 2 : 1); }
+function nomRoute(p) { var n = p.nom; if (!n || n === "NC") n = p.nature ? p.nature + " sans nom" : "Voie sans nom"; return n; }
+
+function afficher() {
+  var s = etat.sit, ni = niveauInfo(s);
+  var b = $("badge"); b.textContent = ni.court; b.style.background = ni.coul; b.style.color = clair(ni.coul) ? "#3d2f00" : "#fff";
+  var c = $("carteNiveau"); c.style.background = ni.coul; c.classList.toggle("clair", clair(ni.coul));
+  $("nivLib").textContent = ni.lib; $("nivDetail").textContent = ni.detail;
+  $("majTexte").textContent = s ? "Situation mise à jour " + quand(s.maj) : "Aucune situation publiée";
+  $("exo").classList.toggle("cache", !(s && s.exercice));
+  fraicheur(s);
+  if (!s) { $("infos").innerHTML = '<li class="vide">Aucune situation publiée par l\'astreinte.</li>'; return; }
+  // KPI rivières
+  var riv = s.rivieres || [], rivAl = riv.filter(function (r) { return r.niveau_atteint; });
+  $("kRiv").textContent = rivAl.length ? rivAl.length + " / " + riv.length : "RAS";
+  $("kRivD").textContent = rivAl.length ? "station(s) au-dessus d'un seuil" : riv.length + " stations sous les seuils";
+  $("kRiv").parentNode.classList.toggle("alerte", rivAl.length > 0);
+  var ech = s.echelles || [], echAl = ech.filter(function (e) { return e.niveau_atteint; }), echLu = ech.filter(function (e) { return e.h != null; });
+  $("kEch").textContent = echAl.length ? echAl.length + " en alerte" : (echLu.length ? "RAS" : "–");
+  $("kEchD").textContent = echLu.length + " échelle(s) relevée(s) sur " + ech.length;
+  $("kEch").parentNode.classList.toggle("alerte", echAl.length > 0);
+  var pv = (s.pluie && s.pluie.prevue) || [], p6 = null, p24 = null;
+  pv.forEach(function (x) { if (x.p6 != null) p6 = Math.max(p6 || 0, x.p6); if (x.p24 != null) p24 = Math.max(p24 || 0, x.p24); });
+  $("kPluie").textContent = p6 == null ? "–" : nb(p6, 0) + " mm";
+  $("kPluieD").textContent = p24 == null ? "" : nb(p24, 0) + " mm sur 24 h (max. sous-bassin)";
+  $("kPluie").parentNode.classList.toggle("alerte", p6 != null && p6 >= 20);
+  var z = s.zone || {};
+  $("kZone").textContent = z.q ? z.q + " m³/s" : "–";
+  $("kZoneD").textContent = z.q ? nb(z.batiments, 0) + " bâtiment(s) touché(s)" : "aucun scénario actif";
+  // routes
+  var feats = (etat.routes && etat.routes.features) || [], communes = {};
+  feats.forEach(function (f) { communes[f.properties.commune || "Autre"] = 1; });
+  var nr = Object.keys(communes).length;
+  $("bandeauRoutes").classList.toggle("ok", !feats.length);
+  $("rTitre").textContent = feats.length ? feats.length + " tronçons de voies coupés" : "Aucune route coupée signalée";
+  $("rDetail").textContent = feats.length ? "dans " + nr + " commune(s) – voir la liste" : (z.q ? "pour le scénario actif" : "");
+  // infos
+  var inf = s.infos || [];
+  $("infos").innerHTML = inf.length ? inf.map(function (i) {
+    return "<li><time>" + heure(i.heure) + "</time><p>" + esc(i.texte) + (i.detail ? "<small>" + esc(i.detail) + "</small>" : "") + "</p></li>";
+  }).join("") : '<li class="vide">Pas d\'information pour le moment.</li>';
+  afficherMesures(); afficherRoutes(); remplirEchelles();
+}
+
+/* ---------- mesures ---------- */
+function segMesures(v) {
+  [].forEach.call(document.querySelectorAll("#segMesures button"), function (b) { b.classList.toggle("on", b.getAttribute("data-v") === v); });
+  $("mesRivieres").classList.toggle("cache", v !== "rivieres"); $("mesEchelles").classList.toggle("cache", v !== "echelles"); $("mesPluie").classList.toggle("cache", v !== "pluie");
+}
+$("segMesures").onclick = function (ev) { var b = ev.target.closest("button"); if (b) segMesures(b.getAttribute("data-v")); };
+function afficherMesures() {
+  var s = etat.sit; if (!s) return;
+  $("mesRivieres").innerHTML = (s.rivieres || []).map(function (r) {
+    var seuils = r.seuils || [], max = seuils.length ? seuils[seuils.length - 1].valeur * 1.25 : Math.max(r.q_ls || 0, 1) * 1.5;
+    var pc = Math.min(100, Math.max(0, (r.q_ls || 0) / max * 100));
+    var j = seuils.length ? '<div class="jauge"><i style="width:' + pc + '%"></i>' + seuils.map(function (x) {
+      return '<u class="' + (x.niveau === "N2" ? "r" : "") + '" style="left:' + Math.min(99, x.valeur / max * 100) + '%"></u>'; }).join("") + "</div>" +
+      '<div class="jlib"><span>' + seuils.map(function (x) { return x.niveau + " : " + m3s(x.valeur) + " m³/s"; }).join(" · ") + "</span></div>" : "";
+    return '<div class="carte"><div class="mes"><div class="nom"><b>' + esc(r.nom) + "</b><span>" + esc(r.cours_eau || "") + " · " + quand(r.date) + "</span></div>" +
+      '<div class="val">' + tendance(r.q_ls, r.q_1h) + "<b>" + m3s(r.q_ls) + "</b><span>m³/s" + (r.niveau_atteint ? ' <span class="puce ' + r.niveau_atteint + '">' + r.niveau_atteint + "</span>" : "") + "</span></div></div>" + j + "</div>";
+  }).join("") || '<p class="vide">Aucune station publiée.</p>';
+  $("mesEchelles").innerHTML = (s.echelles || []).map(function (e) {
+    var max = (e.rouge || e.jaune || 3) * 1.2, pc = e.h == null ? 0 : Math.min(100, e.h / max * 100);
+    var j = (e.jaune || e.rouge) ? '<div class="jauge"><i style="width:' + pc + '%"></i>' + (e.jaune ? '<u style="left:' + (e.jaune / max * 100) + '%"></u>' : "") + (e.rouge ? '<u class="r" style="left:' + (e.rouge / max * 100) + '%"></u>' : "") + "</div>" +
+      '<div class="jlib"><span>' + (e.jaune ? "jaune " + nb(e.jaune, 2) + " m" : "") + (e.rouge ? " · rouge " + nb(e.rouge, 2) + " m" : "") + "</span></div>" : "";
+    return '<div class="carte"><div class="mes"><div class="nom"><b>' + esc(e.nom) + "</b><span>" + esc(e.commune || "") + (e.date ? " · lu " + quand(e.date) : " · pas de relevé") + "</span></div>" +
+      '<div class="val">' + tendEch(e.tendance) + "<b>" + (e.h == null ? "–" : nb(e.h, 2)) + "</b><span>m" + (e.niveau_atteint ? ' <span class="puce ' + e.niveau_atteint + '">' + (e.niveau_atteint === "N3" ? "rouge" : "jaune") + "</span>" : "") + "</span></div></div>" + j + "</div>";
+  }).join("") || '<p class="vide">Aucune échelle publiée.</p>';
+  var p = s.pluie || {}, pv = p.prevue || [], po = p.observee || [];
+  $("mesPluie").innerHTML = '<div class="carte"><b style="color:var(--ink)">Pluie prévue par sous-bassin</b>' +
+    (pv.length ? '<table class="table"><tr><th>Sous-bassin</th><th>3 h</th><th>6 h</th><th>24 h</th></tr>' + pv.map(function (x) {
+      return "<tr><td>" + esc(x.nom) + "</td><td>" + nb(x.p3, 0) + '</td><td><b>' + nb(x.p6, 0) + "</b></td><td>" + nb(x.p24, 0) + "</td></tr>"; }).join("") + "</table>" +
+      '<p class="note">En mm · prévision du ' + quand(pv[0].run) + ". Veille renforcée proposée à partir de 20 mm en 6 h.</p>" : '<p class="vide">Pas de prévision publiée.</p>') + "</div>" +
+    '<div class="carte"><b style="color:var(--ink)">Pluie observée</b>' +
+    (po.length ? '<table class="table"><tr><th>Pluviomètre</th><th>1 h</th><th>24 h</th></tr>' + po.map(function (x) {
+      return "<tr><td>" + esc(x.nom) + "<br><small style=\"color:var(--ink-soft)\">" + (x.date ? quand(x.date) : "pas de donnée") + "</small></td><td>" + nb(x.p1h, 1) + "</td><td><b>" + nb(x.p24h, 1) + "</b></td></tr>"; }).join("") + "</table>" : '<p class="vide">Pas de mesure publiée.</p>') + "</div>";
+}
+
+/* ---------- routes coupées ---------- */
+function afficherRoutes() {
+  var q = ($("rechRoute").value || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  var feats = (etat.routes && etat.routes.features) || [], g = {};
+  feats.forEach(function (f, i) {
+    var c = f.properties.commune || "Autre", n = nomRoute(f.properties);
+    var cle = (c + " " + n).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    if (q && cle.indexOf(q) < 0) return;
+    g[c] = g[c] || {}; (g[c][n] = g[c][n] || []).push(i);
+  });
+  var cs = Object.keys(g).sort(function (a, b) { return a === "Autre" ? 1 : b === "Autre" ? -1 : a.localeCompare(b, "fr"); });
+  $("listeRoutes").innerHTML = cs.length ? cs.map(function (c) {
+    var noms = Object.keys(g[c]).sort(function (a, b) { return a.localeCompare(b, "fr"); });
+    return '<div class="commune"><div>' + esc(c) + "<span>" + noms.length + "</span></div><ul>" + noms.map(function (n) {
+      return '<li><button data-routes="' + g[c][n].join(",") + '">' + esc(n) + "<em>Carte ›</em></button></li>"; }).join("") + "</ul></div>";
+  }).join("") : '<p class="vide">' + (feats.length ? "Aucun résultat." : "Aucune route coupée pour le moment.") + "</p>";
+}
+$("rechRoute").oninput = afficherRoutes;
+$("listeRoutes").onclick = function (ev) {
+  var b = ev.target.closest("[data-routes]"); if (!b) return;
+  var ids = b.getAttribute("data-routes").split(",").map(Number);
+  aller("carte");
+  setTimeout(function () {
+    var gr = L.geoJSON({type: "FeatureCollection", features: ids.map(function (i) { return etat.routes.features[i]; })});
+    etat.carte.fitBounds(gr.getBounds(), {maxZoom: 17, padding: [40, 40]});
+    var p = etat.routes.features[ids[0]].properties;
+    fiche("Route coupée", nomRoute(p), [esc(p.commune || ""), esc(p.nature || "") + (p.importance && p.importance !== "NC" ? " · importance " + esc(p.importance) : ""), "Tronçon inondé d'après le scénario actif."]);
+  }, 120);
+};
+
+/* ======================= carte ======================= */
+var COUL_ZONE = ["#cfe6fb", "#9fcbf3", "#5ea6e6", "#2b78c9", "#0b3a78"];
+var LIB_ZONE = ["< 0,25 m", "0,25–0,5 m", "0,5–1 m", "1–2 m", "> 2 m"];
+var COUL_NIV = {N1: "#f1c40f", N2: "#e67e22", N2bis: "#e74c3c", N3: "#7b0000"};
+function initCarte() {
+  if (etat.carte) return;
+  var c = L.map("carte", {zoomControl: false, attributionControl: true}).setView([45.743, 4.765], 12);
+  L.control.zoom({position: "topright"}).addTo(c); c.attributionControl.setPrefix(false);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 19, attribution: "© OpenStreetMap"}).addTo(c);
+  c.getContainer().querySelector(".leaflet-top.leaflet-right").style.marginTop = "48px";
+  c.on("click", function () { $("fiche").classList.add("cache"); });
+  etat.carte = c;
+  ["zone", "routes", "mesures", "ouvrages"].forEach(function (k) { etat.couches[k] = L.layerGroup().addTo(c); });
+  $("legende").innerHTML = "<b>Hauteur d'eau</b><br>" + LIB_ZONE.map(function (l, i) { return '<i style="background:' + COUL_ZONE[i] + '"></i>' + l; }).join("<br>");
+  dessinerCarte();
+}
+$("couches").onclick = function (ev) {
+  var b = ev.target.closest("button"); if (!b || !etat.carte) return;
+  var k = b.getAttribute("data-c"), on = !b.classList.contains("on");
+  b.classList.toggle("on", on);
+  if (on) etat.couches[k].addTo(etat.carte); else etat.carte.removeLayer(etat.couches[k]);
+  if (k === "zone") $("legende").classList.toggle("cache", !on);
+};
+$("ficheX").onclick = function () { $("fiche").classList.add("cache"); };
+function fiche(sur, titre, lignes) {
+  $("ficheCorps").innerHTML = "<small>" + esc(sur) + "</small><b>" + esc(titre) + "</b>" + lignes.filter(Boolean).map(function (l) { return "<p>" + l + "</p>"; }).join("");
+  $("fiche").classList.remove("cache");
+}
+function cadrerZone() {
+  var l = etat.couches.zone && etat.couches.zone.getLayers()[0];
+  if (l && l.getBounds && l.getBounds().isValid()) etat.carte.fitBounds(l.getBounds(), {padding: [20, 20]});
+}
+function rond(pos, coul, r, bord) { return L.circleMarker(pos, {radius: r || 8, color: bord || "#fff", weight: 2, fillColor: coul, fillOpacity: 1}); }
+function dessinerCarte() {
+  if (!etat.carte) return;
+  var C = etat.couches; Object.keys(C).forEach(function (k) { C[k].clearLayers(); });
+  var s = etat.sit || {};
+  if (etat.zone && etat.zone.features && etat.zone.features.length) {
+    L.geoJSON(etat.zone, {interactive: false, style: function (f) { var i = (f.properties.classe || 1) - 1; return {stroke: false, fillColor: COUL_ZONE[i], fillOpacity: 0.6}; }}).addTo(C.zone);
+  }
+  if (etat.routes && etat.routes.features) {
+    L.geoJSON(etat.routes, {style: {color: "#d0021b", weight: 5, opacity: 0.9}, onEachFeature: function (f, l) {
+      l.on("click", function (e) { L.DomEvent.stop(e); var p = f.properties;
+        fiche("Route coupée", nomRoute(p), [esc(p.commune || ""), esc(p.nature || ""), "Tronçon inondé d'après le scénario actif."]); });
+    }}).addTo(C.routes);
+  }
+  (s.rivieres || []).forEach(function (r) {
+    if (!r.pos) return;
+    rond(r.pos, COUL_NIV[r.niveau_atteint] || "#0a6fcf", 9).on("click", function (e) { L.DomEvent.stop(e);
+      fiche("Station de mesure", r.nom, ["<b style=\"display:inline;font-size:20px\">" + m3s(r.q_ls) + " m³/s</b> " + tendance(r.q_ls, r.q_1h), quand(r.date),
+        (r.seuils || []).map(function (x) { return x.niveau + " : " + m3s(x.valeur) + " m³/s"; }).join(" · "), r.niveau_atteint ? 'Seuil atteint : <span class="puce ' + r.niveau_atteint + '">' + r.niveau_atteint + "</span>" : ""]); }).addTo(C.mesures);
+  });
+  (s.echelles || []).forEach(function (e) {
+    if (!e.pos) return;
+    var m = L.marker(e.pos, {icon: L.divIcon({className: "", iconSize: [18, 18], html: '<div style="width:16px;height:16px;border:2px solid #fff;border-radius:3px;box-shadow:0 0 2px #0006;background:' + (e.niveau_atteint === "N3" ? "#c0392b" : e.niveau_atteint ? "#f1c40f" : "#16a085") + '"></div>'})});
+    m.on("click", function (ev) { L.DomEvent.stop(ev);
+      fiche("Échelle limnimétrique", e.nom, [esc(e.commune || ""), e.h == null ? "Pas de relevé" : "<b style=\"display:inline;font-size:20px\">" + nb(e.h, 2) + " m</b> " + tendEch(e.tendance) + " · lu " + quand(e.date),
+        (e.jaune ? "Jaune : " + nb(e.jaune, 2) + " m" : "") + (e.rouge ? " · Rouge : " + nb(e.rouge, 2) + " m" : "")]); }).addTo(C.mesures);
+  });
+  (etat.ouvrages || []).forEach(function (o) {
+    if (!o.pos) return;
+    if (o.t === "clapet") {
+      var defa = o.etat && !/^ok$/i.test(o.etat) && !/non renseign/i.test(o.etat);
+      if (!o.zone && !defa) return;
+      rond(o.pos, defa ? "#c0392b" : "#7f8c8d", defa ? 7 : 5).on("click", function (e) { L.DomEvent.stop(e);
+        fiche("Clapet anti-retour", o.code, [esc(o.commune || "") + (o.riviere ? " · " + esc(o.riviere) : ""), "État : <b style=\"display:inline;font-size:15px\">" + esc(o.etat) + "</b>", o.q_ref ? "Concerné à partir de " + o.q_ref + " m³/s" : ""]); }).addTo(C.ouvrages);
+    } else if (o.t === "batardeau") {
+      L.marker(o.pos, {icon: L.divIcon({className: "", iconSize: [22, 22], html: '<div style="width:20px;height:20px;border-radius:4px;background:#6c3483;border:2px solid #fff;color:#fff;font:900 12px/16px Nunito;text-align:center;box-shadow:0 0 2px #0006">B</div>'})})
+        .on("click", function (e) { L.DomEvent.stop(e); fiche("Batardeau", o.nom || o.code, [esc(o.commune || ""), "État : <b style=\"display:inline;font-size:15px\">" + esc(o.etat || "non renseigné") + "</b>", o.consigne ? esc(o.consigne) : ""]); }).addTo(C.ouvrages);
+    } else if (o.t === "signalement") {
+      var coul = o.gravite === "danger" ? "#c0392b" : o.gravite === "risque" ? "#e67e22" : "#d4ac0d";
+      L.marker(o.pos, {icon: L.divIcon({className: "", iconSize: [24, 22], html: '<svg width="24" height="22" viewBox="0 0 24 22"><path d="M12 1 23 21H1z" fill="' + coul + '" stroke="#fff" stroke-width="2"/><path d="M12 8v6M12 17v.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>'})})
+        .on("click", function (e) { L.DomEvent.stop(e); fiche("Signalement · " + (o.gravite || ""), o.type, [esc(o.commune || "") + " · " + quand(o.heure), o.description ? esc(o.description) : "", "Statut : " + esc(o.etat || "ouvert")]); }).addTo(C.ouvrages);
+    }
+  });
+}
+$("btMaPos").onclick = function () {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(function (p) {
+    var ll = [p.coords.latitude, p.coords.longitude];
+    if (etat.posMarq) etat.carte.removeLayer(etat.posMarq);
+    etat.posMarq = L.layerGroup([L.circle(ll, {radius: p.coords.accuracy, weight: 1, color: "#0a6fcf", fillOpacity: .1}), rond(ll, "#0a6fcf", 7)]).addTo(etat.carte);
+    etat.carte.setView(ll, Math.max(etat.carte.getZoom(), 16));
+  }, function () { alerte("Position indisponible : autorisez la localisation pour ce site."); }, {enableHighAccuracy: true, timeout: 15000});
+};
+function alerte(t) { $("ficheCorps").innerHTML = "<small>Information</small><p>" + esc(t) + "</p>"; $("fiche").classList.remove("cache"); }
+
+/* ======================= signaler ======================= */
+function construireSignaler() {
+  $("types").innerHTML = TYPES.map(function (t) {
+    return '<button class="choice" type="button" data-t="' + t.c + '"><span class="radio"></span><span class="ctext"><b>' + t.l + "</b></span></button>"; }).join("");
+}
+function remplirEchelles() {
+  var sel = $("sEchelle"), v = sel.value, ech = (etat.sit && etat.sit.echelles) || [];
+  sel.innerHTML = '<option value="">— pas d\'échelle / autre lieu —</option>' + ech.map(function (e) {
+    return '<option value="' + esc(e.nom) + '">' + esc(e.nom) + (e.commune ? " (" + esc(e.commune) + ")" : "") + "</option>"; }).join("");
+  sel.value = v;
+}
+$("types").onclick = function (ev) {
+  var b = ev.target.closest("[data-t]"); if (!b) return;
+  etat.sig.type = b.getAttribute("data-t");
+  [].forEach.call($("types").children, function (x) { x.classList.toggle("on", x === b); });
+  $("blocNiveau").classList.toggle("cache", etat.sig.type !== "niveau");
+  if (etat.sig.type === "niveau" && etat.sig.pos) echelleProche();
+};
+$("grav").onclick = function (ev) {
+  var b = ev.target.closest("[data-g]"); if (!b) return;
+  etat.sig.gravite = b.getAttribute("data-g");
+  [].forEach.call($("grav").children, function (x) { x.classList.toggle("on", x === b); });
+};
+function distance(a, b) { var R = 6371000, r = Math.PI / 180, dl = (b[0] - a[0]) * r, dg = (b[1] - a[1]) * r;
+  var h = Math.sin(dl / 2) * Math.sin(dl / 2) + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dg / 2) * Math.sin(dg / 2); return 2 * R * Math.asin(Math.sqrt(h)); }
+function echelleProche() {
+  if ($("sEchelle").value) return;
+  var p = [etat.sig.pos.lat, etat.sig.pos.lon], best = null;
+  ((etat.sit && etat.sit.echelles) || []).forEach(function (e) { if (!e.pos) return; var d = distance(p, e.pos); if (d < 150 && (!best || d < best.d)) best = {d: d, nom: e.nom}; });
+  if (best) $("sEchelle").value = best.nom;
+}
+function localiser() {
+  if (!navigator.geolocation) { $("posTexte").textContent = "Localisation non disponible sur cet appareil."; return; }
+  $("posTexte").textContent = "Recherche de la position…";
+  navigator.geolocation.getCurrentPosition(function (p) {
+    etat.sig.pos = {lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy};
+    $("posTexte").innerHTML = "<b>Position relevée</b> à ±" + Math.round(p.coords.accuracy) + " m";
+    if (etat.sig.type === "niveau") echelleProche();
+  }, function () {
+    etat.sig.pos = null;
+    $("posTexte").textContent = "Position indisponible : autorisez la localisation, ou décrivez le lieu dans les précisions.";
+  }, {enableHighAccuracy: true, timeout: 20000, maximumAge: 30000});
+}
+$("btPos").onclick = localiser;
+$("btPhoto").onclick = function () { $("sPhoto").click(); };
+$("sPhoto").onchange = function () {
+  var f = this.files && this.files[0]; if (!f) return;
+  reduire(f, 1600, 0.8, function (blob, url) {
+    etat.sig.photo = blob; $("apercuPhoto").src = url; $("apercu").classList.remove("cache"); $("btPhoto").classList.add("cache");
+  });
+};
+$("btSupPhoto").onclick = function () {
+  etat.sig.photo = null; $("apercu").classList.add("cache"); $("btPhoto").classList.remove("cache"); $("sPhoto").value = "";
+};
+function reduire(fichier, max, qualite, cb) {
+  var url = URL.createObjectURL(fichier), img = new Image();
+  img.onload = function () {
+    var k = Math.min(1, max / Math.max(img.width, img.height)), cv = document.createElement("canvas");
+    cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+    cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(url);
+    cv.toBlob(function (b) { cb(b, URL.createObjectURL(b)); }, "image/jpeg", qualite);
+  };
+  img.onerror = function () { cb(fichier, url); };
+  img.src = url;
+}
+$("btEnvoyer").onclick = function () {
+  var s = etat.sig;
+  if (!s.type) return msg("msgSignal", "Choisissez le type de problème.", "err");
+  if (!s.gravite) return msg("msgSignal", "Indiquez la gravité.", "err");
+  var h = $("sHauteur").value.replace(",", ".");
+  if (s.type === "niveau" && h && (isNaN(Number(h)) || Number(h) < 0 || Number(h) > 10)) return msg("msgSignal", "Hauteur lue invalide (en mètres, entre 0 et 10).", "err");
+  if (!s.pos && !$("sDesc").value.trim()) return msg("msgSignal", "Sans position GPS, décrivez le lieu dans les précisions.", "err");
+  var ligne = {id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()), type: s.type, gravite: s.gravite, description: $("sDesc").value.trim() || null,
+    hauteur_m: s.type === "niveau" && h ? Number(h) : null, echelle: s.type === "niveau" ? ($("sEchelle").value || null) : null,
+    lat: s.pos ? s.pos.lat : null, lon: s.pos ? s.pos.lon : null, precision_m: s.pos ? Math.round(s.pos.acc) : null};
+  $("btEnvoyer").disabled = true; msg("msgSignal", "Envoi en cours…", "info");
+  envoyer(ligne, s.photo).then(function () {
+    $("btEnvoyer").disabled = false;
+    msg("msgSignal", "Signalement envoyé à l'astreinte. Vous pouvez suivre sa prise en charge dans « Mes signalements ».", "ok");
+    reinitSignal();
+  }, function (err) {
+    $("btEnvoyer").disabled = false;
+    if (estHorsLigne(err)) {
+      mettreEnFile(ligne, s.photo, function (ok) {
+        msg("msgSignal", ok ? "Pas de réseau : le signalement est gardé sur le téléphone et partira automatiquement dès le retour du réseau." : "Pas de réseau et impossible de garder le signalement : réessayez plus tard.", ok ? "info" : "err");
+        if (ok) reinitSignal();
+      });
+    } else msg("msgSignal", "Échec de l'envoi : " + (err && err.message || err), "err");
+  });
+};
+function estHorsLigne(err) { return !navigator.onLine || /fetch|network|réseau|Failed/i.test(String(err && (err.message || err))); }
+function reinitSignal() {
+  etat.sig.type = etat.sig.gravite = null; $("btSupPhoto").click(); $("sDesc").value = ""; $("sHauteur").value = ""; $("sEchelle").value = "";
+  [].forEach.call(document.querySelectorAll("#types button,#grav button"), function (x) { x.classList.remove("on"); });
+  $("blocNiveau").classList.add("cache");
+}
+function envoyer(ligne, photo) {
+  var email = etat.agent.email.toLowerCase(), chemin = null;
+  var etape = Promise.resolve();
+  if (photo) {
+    chemin = email + "/" + ligne.id + ".jpg";
+    etape = sb.storage.from("terrain-photos").upload(chemin, photo, {contentType: "image/jpeg", upsert: true}).then(function (r) { if (r.error) throw r.error; });
+  }
+  return etape.then(function () {
+    var l = {}; Object.keys(ligne).forEach(function (k) { l[k] = ligne[k]; }); l.photo = chemin;
+    return sb.from("terrain_signalements").insert(l).then(function (r) {
+      if (r.error && !/duplicate/i.test(r.error.message)) throw r.error;
+    });
+  });
+}
+/* file d'attente hors réseau */
+function mettreEnFile(ligne, photo, cb) {
+  var f = lire("file") || [];
+  if (!photo) { f.push({ligne: ligne}); stocker("file", f); return cb(lire("file") != null); }
+  var rd = new FileReader();
+  rd.onload = function () { f.push({ligne: ligne, photo: rd.result}); stocker("file", f); var ok = (lire("file") || []).length === f.length;
+    if (!ok) { f[f.length - 1] = {ligne: ligne}; stocker("file", f); ok = (lire("file") || []).length === f.length; } cb(ok); };
+  rd.onerror = function () { f.push({ligne: ligne}); stocker("file", f); cb(true); };
+  rd.readAsDataURL(photo);
+}
+function envoyerFile() {
+  var f = lire("file") || []; if (!f.length || !navigator.onLine) return;
+  var e = f[0], photo = null;
+  if (e.photo) { var p = e.photo.split(","), bin = atob(p[1]), a = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); photo = new Blob([a], {type: "image/jpeg"}); }
+  envoyer(e.ligne, photo).then(function () {
+    stocker("file", (lire("file") || []).slice(1)); msg("msgSignal", "Un signalement en attente a été transmis à l'astreinte.", "ok"); envoyerFile();
+  }, function () {});
+}
+
+/* ======================= mes signalements ======================= */
+function chargerMesSig() {
+  var f = lire("file") || [];
+  $("listeMesSig").innerHTML = '<p class="vide">Chargement…</p>';
+  sb.from("terrain_signalements").select("id,cree,type,gravite,description,hauteur_m,echelle,statut").eq("agent_email", etat.agent.email.toLowerCase()).order("cree", {ascending: false}).limit(50).then(function (r) {
+    var l = (r.data || []);
+    var html = f.map(function (e) { return carteSig(e.ligne, "En attente de réseau", "envoye", null); }).join("") +
+      l.map(function (s) { var e = ETAT_LIB[s.statut] || [s.statut, "envoye"]; return carteSig(s, e[0], e[1], s.cree); }).join("");
+    $("listeMesSig").innerHTML = html || '<p class="vide">Vous n\'avez encore rien signalé.</p>';
+  });
+}
+function carteSig(s, lib, cl, cree) {
+  return '<div class="carte"><div class="mes"><div class="nom"><b>' + esc(TYPES_LIB[s.type] || s.type) + "</b><span>" + esc(GRAV_LIB[s.gravite] || "") + (cree ? " · " + quand(cree) : "") + "</span></div>" +
+    '<span class="etat ' + cl + '">' + esc(lib) + "</span></div>" +
+    (s.type === "niveau" && (s.hauteur_m != null || s.echelle) ? '<p class="note">' + (s.hauteur_m != null ? nb(s.hauteur_m, 2) + " m" : "") + (s.echelle ? " · " + esc(s.echelle) : "") + "</p>" : "") +
+    (s.description ? '<p class="note">' + esc(s.description) + "</p>" : "") + "</div>";
+}
+
+/* ======================= agents (astreinte) ======================= */
+function chargerAgents() {
+  sb.from("terrain_agents").select("email,nom,role,actif").order("nom").then(function (r) {
+    if (r.error) return msg("msgAgent", r.error.message, "err");
+    $("listeAgents").innerHTML = r.data.map(function (a) {
+      return '<div class="agent"><div><b>' + esc(a.nom) + (a.role === "astreinte" ? ' <span class="puce">astreinte</span>' : "") + "</b><span>" + esc(a.email) + "</span></div>" +
+        (a.email === etat.agent.email ? "" : '<button class="btn ghost petit" data-agent="' + esc(a.email) + '" data-actif="' + (a.actif ? 1 : 0) + '">' + (a.actif ? "Désactiver" : "Réactiver") + "</button>") + "</div>";
+    }).join("");
+  });
+}
+$("btAjoutAgent").onclick = function () {
+  var n = $("aNom").value.trim(), e = $("aMail").value.trim().toLowerCase();
+  if (!n || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) return msg("msgAgent", "Nom et adresse e-mail valides requis.", "err");
+  sb.from("terrain_agents").upsert({email: e, nom: n, role: $("aRole").value, actif: true}).then(function (r) {
+    if (r.error) return msg("msgAgent", r.error.message, "err");
+    msg("msgAgent", n + " peut maintenant créer son mot de passe avec « Première connexion ».", "ok");
+    $("aNom").value = ""; $("aMail").value = ""; chargerAgents();
+  });
+};
+$("listeAgents").onclick = function (ev) {
+  var b = ev.target.closest("[data-agent]"); if (!b) return;
+  sb.from("terrain_agents").update({actif: b.getAttribute("data-actif") !== "1"}).eq("email", b.getAttribute("data-agent")).then(function (r) {
+    if (r.error) msg("msgAgent", r.error.message, "err"); chargerAgents();
+  });
+};
+
+/* ======================= lancement ======================= */
+sb.auth.getSession().then(function (r) {
+  if (/type=recovery/.test(location.hash)) return;
+  if (r.data.session) demarrer(r.data.session); else ecranConnexion();
+});
+setInterval(function () { if (etat.sit) { $("majTexte").textContent = "Situation mise à jour " + quand(etat.sit.maj); fraicheur(etat.sit); } }, 20000);
+</script>
+</body>
+</html>
