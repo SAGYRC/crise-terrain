@@ -165,7 +165,8 @@ textarea{min-height:100px;resize:vertical}
 .drop b{font-size:17px;font-weight:900}
 .drop span{color:var(--ink-soft);font-size:14px}
 .apercu{position:relative}
-.apercu img{display:block;width:100%;max-height:260px;object-fit:cover;border-radius:14px}
+.apercu img{display:block;width:100%;max-height:320px;object-fit:contain;background:#0b1e33;border-radius:14px}
+.apercu .pivot{right:auto;left:10px;font-size:22px}
 .apercu button{position:absolute;top:10px;right:10px;width:38px;height:38px;border-radius:50%;background:rgba(5,30,60,.8);color:#fff;font-size:20px}
 .btn{appearance:none;border:0;width:100%;min-height:52px;border-radius:99px;background:var(--accent);color:var(--on-accent);font:800 18px var(--display);display:flex;align-items:center;justify-content:center;gap:10px;padding:0 18px}
 .btn:active{transform:scale(.98)}
@@ -306,9 +307,8 @@ nav button.alerte .pastille{display:block}
     <div id="alSig" class="ecran"></div>
     <h3>Clapets anti-retour en dysfonctionnement</h3>
     <div id="alClap" class="ecran"></div>
-    <h3>Bâtiments inondés et routes coupées par commune</h3>
+    <h3>Bâtiments inondés et routes coupées potentiels par commune</h3>
     <p class="note" id="alScen" style="margin-top:-4px"></p>
-    <input class="recherche" id="rechRoute" type="search" placeholder="Rechercher une rue, une commune…">
     <div id="listeRoutes" class="ecran"></div>
     <p class="note">D'après le scénario de crue retenu par l'astreinte et les clapets en dysfonctionnement (modélisation) : à confirmer sur le terrain.</p>
   </section>
@@ -318,6 +318,12 @@ nav button.alerte .pastille{display:block}
     <h2>Signaler un problème</h2>
     <label for="sType">Type de problème</label>
     <select id="sType"></select>
+    <div id="blocClapet" class="cache">
+      <label for="sClapet">Clapet concerné</label>
+      <select id="sClapet"></select>
+      <label for="sPanne">Constat</label>
+      <select id="sPanne"><option value="">— préciser —</option><option>Clapet bloqué ouvert (l'eau remonte)</option><option>Clapet bloqué fermé (ne s'évacue plus)</option><option>Clapet fuyant</option><option>Clapet obstrué (embâcle, déchets)</option><option>Clapet endommagé / arraché</option></select>
+    </div>
     <div id="blocNiveau" class="cache">
       <label>Niveau observé</label>
       <div class="mode" id="modeNiveau"><button type="button" data-m="echelle" class="on">À une échelle</button><button type="button" data-m="digue">Par rapport à la digue</button></div>
@@ -343,7 +349,7 @@ nav button.alerte .pastille{display:block}
     <div class="place"><span class="pin"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-7 7-12a7 7 0 10-14 0c0 5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><div id="posTexte">Recherche de la position…</div><button class="lien" id="btPos" type="button">Actualiser</button></div>
     <label>Photo <span class="aide">(facultatif)</span></label>
     <button class="drop" id="btPhoto" type="button"><b>Prendre une photo</b><span>ou en choisir une dans la galerie</span></button>
-    <div class="apercu cache" id="apercu"><img id="apercuPhoto" alt="Photo jointe"><button id="btSupPhoto" type="button" aria-label="Retirer la photo">×</button></div>
+    <div class="apercu cache" id="apercu"><img id="apercuPhoto" alt="Photo jointe"><button id="btSupPhoto" type="button" aria-label="Retirer la photo">×</button><button id="btPivot" class="pivot" type="button" aria-label="Pivoter la photo">↻</button></div>
     <input id="sPhoto" type="file" accept="image/*" capture="environment" class="cache">
     <label for="sDesc">Précisions</label>
     <textarea id="sDesc" placeholder="Lieu exact, ce que vous observez, besoin d'intervention…"></textarea>
@@ -427,7 +433,7 @@ var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_CLE, {auth: {persis
 var TYPES = [
   {c: "embacle", l: "Embâcle"},
   {c: "arbre", l: "Arbre tombé"},
-  {c: "clapet", l: "Clapet bloqué"},
+  {c: "clapet", l: "Dysfonctionnement de clapet"},
   {c: "debordement", l: "Débordement"},
   {c: "route", l: "Route inondée"},
   {c: "erosion", l: "Érosion de berge"},
@@ -744,7 +750,7 @@ function afficherAlertes() {
   // communes
   $("alScen").textContent = (al.q ? "Scénario retenu par l'astreinte : crue de " + al.q + " m³/s (débit attendu)." : "Aucun scénario de crue retenu par l'astreinte.") +
     (clap.length ? " Inclut le refoulement derrière " + clap.length + " clapet(s) en dysfonctionnement." : "");
-  var q = sansAccent($("rechRoute").value), feats = (etat.routes && etat.routes.features) || [], g = {};
+  var q = "", feats = (etat.routes && etat.routes.features) || [], g = {};
   feats.forEach(function (f, i) {
     var c = f.properties.commune || "Autre", n = nomRoute(f.properties);
     if (q && sansAccent(c + " " + n).indexOf(q) < 0) return;
@@ -761,7 +767,6 @@ function afficherAlertes() {
       (noms.length ? "<ul>" + noms.map(function (n) { return '<li><button data-routes="' + g[c][n].join(",") + '">' + esc(n) + "<em>Carte ›</em></button></li>"; }).join("") + "</ul>" : "") + "</div>";
   }).join("") : '<p class="vide">' + (q ? "Aucun résultat." : (al.q || clap.length) ? "Aucune route coupée ni bâtiment inondé." : "Rien à signaler.") + "</p>";
 }
-$("rechRoute").oninput = afficherAlertes;
 $("alSig").onclick = function (ev) {
   var v = ev.target.closest("[data-voir]"), r = ev.target.closest("[data-resoudre]");
   if (v) {
@@ -825,6 +830,11 @@ $("couches").onclick = function (ev) {
   if (k === "zone") { $("legende").classList.toggle("cache", !on); $("carteInfo").classList.toggle("cache", !on); }
 };
 $("ficheX").onclick = function () { $("fiche").classList.add("cache"); };
+$("ficheCorps").onclick = function (ev) {
+  var b = ev.target.closest("[data-sig-clapet]"); if (!b) return;
+  $("fiche").classList.add("cache"); aller("signaler");
+  $("sType").value = "clapet"; $("sType").onchange(); remplirClapets(b.getAttribute("data-sig-clapet"));
+};
 function fiche(sur, titre, lignes) {
   $("ficheCorps").innerHTML = "<small>" + esc(sur) + "</small><b>" + esc(titre) + "</b>" + lignes.filter(Boolean).map(function (l) { return "<p>" + l + "</p>"; }).join("");
   $("fiche").classList.remove("cache");
@@ -882,7 +892,7 @@ function dessinerCarte() {
       var defa = o.etat && !/^ok$/i.test(o.etat) && !/non renseign/i.test(o.etat);
       if (!o.zone && !defa) return;
       rond(o.pos, defa ? "#c0392b" : "#7f8c8d", defa ? 7 : 5).on("click", function (e) { L.DomEvent.stop(e);
-        fiche("Clapet anti-retour", o.code, [esc(o.commune || "") + (o.riviere ? " · " + esc(o.riviere) : ""), "État : <b style=\"display:inline;font-size:15px\">" + esc(o.etat) + "</b>", o.q_ref ? "Concerné à partir de " + o.q_ref + " m³/s" : ""]); }).addTo(C.ouvrages);
+        fiche("Clapet anti-retour", o.code, ['<button class="btn petit" style="margin-top:4px" data-sig-clapet="' + esc(o.code) + '">Signaler un dysfonctionnement</button>', esc(o.commune || "") + (o.riviere ? " · " + esc(o.riviere) : ""), "État : <b style=\"display:inline;font-size:15px\">" + esc(o.etat) + "</b>", o.q_ref ? "Concerné à partir de " + o.q_ref + " m³/s" : ""]); }).addTo(C.ouvrages);
     } else if (o.t === "batardeau") {
       L.marker(o.pos, {icon: L.divIcon({className: "", iconSize: [22, 22], html: '<div style="width:20px;height:20px;border-radius:4px;background:#6c3483;border:2px solid #fff;color:#fff;font:900 12px/16px Nunito;text-align:center;box-shadow:0 0 2px #0006">B</div>'})})
         .on("click", function (e) { L.DomEvent.stop(e); fiche("Batardeau", o.nom || o.code, [esc(o.commune || ""), "État : <b style=\"display:inline;font-size:15px\">" + esc(o.etat || "non renseigné") + "</b>", o.consigne ? esc(o.consigne) : ""]); }).addTo(C.ouvrages);
@@ -920,8 +930,18 @@ $("modeNiveau").onclick = function (ev) {
   [].forEach.call($("modeNiveau").children, function (x) { x.classList.toggle("on", x === b); });
   $("blocEchelle").classList.toggle("cache", etat.modeNiv !== "echelle"); $("blocDigue").classList.toggle("cache", etat.modeNiv !== "digue");
 };
+function remplirClapets(choix) {
+  var cl = (etat.ouvrages || []).filter(function (o) { return o.t === "clapet"; }), p = etat.sig.pos ? [etat.sig.pos.lat, etat.sig.pos.lon] : null;
+  cl.forEach(function (o) { o._d = p && o.pos ? distance(p, o.pos) : null; });
+  cl.sort(function (a, b) { return (a._d == null ? 1e9 : a._d) - (b._d == null ? 1e9 : b._d) || String(a.code).localeCompare(String(b.code)); });
+  $("sClapet").innerHTML = '<option value="">— non identifié —</option>' + cl.map(function (o) {
+    return '<option value="' + esc(o.code) + '">' + esc(o.code) + (o.commune ? " – " + esc(o.commune) : "") + (o._d != null ? " (" + (o._d < 1000 ? Math.round(o._d) + " m" : nb(o._d / 1000, 1) + " km") + ")" : "") + "</option>"; }).join("");
+  $("sClapet").value = choix || (cl[0] && cl[0]._d != null && cl[0]._d < 100 ? cl[0].code : "");
+}
 $("sType").onchange = function () {
   etat.sig.type = $("sType").value || null;
+  $("blocClapet").classList.toggle("cache", etat.sig.type !== "clapet");
+  if (etat.sig.type === "clapet") remplirClapets($("sClapet").value);
   $("blocNiveau").classList.toggle("cache", etat.sig.type !== "niveau");
   if (etat.sig.type === "niveau" && etat.sig.pos) echelleProche();
 };
@@ -945,6 +965,7 @@ function localiser() {
     etat.sig.pos = {lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy};
     $("posTexte").innerHTML = "<b>Position relevée</b> à ±" + Math.round(p.coords.accuracy) + " m";
     if (etat.sig.type === "niveau") echelleProche();
+    if (etat.sig.type === "clapet") remplirClapets($("sClapet").value);
   }, function () {
     etat.sig.pos = null;
     $("posTexte").textContent = "Position indisponible : autorisez la localisation, ou décrivez le lieu dans les précisions.";
@@ -957,6 +978,16 @@ $("sPhoto").onchange = function () {
   reduire(f, 1600, 0.8, function (blob, url) {
     etat.sig.photo = blob; $("apercuPhoto").src = url; $("apercu").classList.remove("cache"); $("btPhoto").classList.add("cache");
   });
+};
+$("btPivot").onclick = function () {
+  if (!etat.sig.photo) return;
+  var url = URL.createObjectURL(etat.sig.photo), img = new Image();
+  img.onload = function () {
+    var cv = document.createElement("canvas"); cv.width = img.height; cv.height = img.width;
+    var g = cv.getContext("2d"); g.translate(cv.width, 0); g.rotate(Math.PI / 2); g.drawImage(img, 0, 0); URL.revokeObjectURL(url);
+    cv.toBlob(function (b) { etat.sig.photo = b; $("apercuPhoto").src = URL.createObjectURL(b); }, "image/jpeg", 0.85);
+  };
+  img.src = url;
 };
 $("btSupPhoto").onclick = function () {
   etat.sig.photo = null; $("apercu").classList.add("cache"); $("btPhoto").classList.remove("cache"); $("sPhoto").value = "";
@@ -981,7 +1012,7 @@ $("btEnvoyer").onclick = function () {
   if (rv && (isNaN(Number(rv)) || Number(rv) < 0 || Number(rv) > 10)) return msg("msgSignal", "Distance eau–crête invalide (en mètres, entre 0 et 10).", "err");
   if (dig && !rv && !surv) return msg("msgSignal", "Indiquez la distance entre l'eau et la crête de digue, ou cochez « surverse ».", "err");
   if (!s.pos && !$("sDesc").value.trim()) return msg("msgSignal", "Sans position GPS, décrivez le lieu dans les précisions.", "err");
-  var ligne = {id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()), type: s.type, gravite: s.gravite, description: $("sDesc").value.trim() || null,
+  var ligne = {id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()), type: s.type, gravite: s.gravite, description: descSignal(),
     hauteur_m: h ? Number(h) : null, echelle: ech ? ($("sEchelle").value || null) : null,
     niveau_ref: niv ? etat.modeNiv : null, digue_secteur: dig ? ($("sSecteur").value || null) : null, revanche_m: surv ? 0 : (rv ? Number(rv) : null), surverse: dig ? surv : null,
     lat: s.pos ? s.pos.lat : null, lon: s.pos ? s.pos.lon : null, precision_m: s.pos ? Math.round(s.pos.acc) : null};
@@ -1000,11 +1031,20 @@ $("btEnvoyer").onclick = function () {
     } else msg("msgSignal", "Échec de l'envoi : " + (err && err.message || err), "err");
   });
 };
+function descSignal() {
+  var d = $("sDesc").value.trim();
+  if (etat.sig.type === "clapet") {
+    var e = ($("sClapet").value ? "Clapet " + $("sClapet").value : "Clapet non identifié") + ($("sPanne").value ? " : " + $("sPanne").value : "");
+    d = e + (d ? " – " + d : "");
+  }
+  return d || null;
+}
 function estHorsLigne(err) { return !navigator.onLine || /fetch|network|réseau|Failed/i.test(String(err && (err.message || err))); }
 function reinitSignal() {
   etat.sig.type = etat.sig.gravite = null; $("btSupPhoto").click(); $("sDesc").value = ""; $("sHauteur").value = ""; $("sEchelle").value = "";
   $("sType").value = ""; $("sRevanche").value = ""; $("sSecteur").value = ""; $("sSurverse").checked = false;
   [].forEach.call(document.querySelectorAll("#grav button"), function (x) { x.classList.remove("on"); });
+  $("sClapet").value = ""; $("sPanne").value = ""; $("blocClapet").classList.add("cache");
   $("blocNiveau").classList.add("cache");
 }
 function envoyer(ligne, photo) {
