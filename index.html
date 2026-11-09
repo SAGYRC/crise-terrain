@@ -713,16 +713,17 @@ function afficherMesures() {
 function sansAccent(t) { return String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
 function sigEnCours() { return (etat.ouvrages || []).filter(function (o) { return o.t === "signalement" && !/trait|clos|non probl/i.test(o.etat || ""); }); }
 function majAlertes() {
-  var al = etat.alertes || {}, n = sigEnCours().length + (al.clapets || []).length + ((al.communes || []).length ? 1 : 0);
+  var al = etat.alertes || {}, n = sigEnCours().length + (al.clapets || []).length + (al.q && (al.communes || []).length ? 1 : 0);
   $("navAlertes").classList.toggle("alerte", n > 0);
   $("navNb").textContent = n > 99 ? "99+" : n;
 }
 function afficherAlertes() {
   var al = etat.alertes || {}, sigs = sigEnCours(), clap = al.clapets || [], com = al.communes || [], res = lire("resolus") || {};
-  var nbB = 0, nbR = 0; com.forEach(function (c) { nbB += c.batiments || 0; nbR += c.routes || 0; });
+  var voies = {}; ((etat.routes && etat.routes.features) || []).forEach(function (f) { voies[(f.properties.commune || "") + "|" + nomRoute(f.properties)] = 1; });
+  var nbR = Object.keys(voies).length;
   $("alResume").innerHTML = '<div class="' + (sigs.length ? "rouge" : "") + '"><b>' + sigs.length + "</b><span>signalement(s)</span></div>" +
     '<div class="' + (clap.length ? "rouge" : "") + '"><b>' + clap.length + "</b><span>clapet(s) HS</span></div>" +
-    '<div class="' + (nbR ? "rouge" : "") + '"><b>' + nbR + "</b><span>route(s) coupée(s)</span></div>";
+    '<div class="' + (nbR ? "rouge" : "") + '"><b>' + nbR + "</b><span>voie(s) coupée(s)</span></div>";
   // signalements
   sigs.sort(function (a, b) { return String(b.heure).localeCompare(String(a.heure)); });
   $("alSig").innerHTML = sigs.length ? sigs.map(function (o) {
