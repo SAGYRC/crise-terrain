@@ -69,10 +69,10 @@ p{margin:0}
 .niveau b{display:block;font-size:19px;font-weight:900;line-height:1.15;margin:1px 0 4px}
 .niveau p{font-size:14px;opacity:.95}
 .niveau.clair{color:#3d2f00}
-.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.kpi{background:var(--tint);border-radius:14px;padding:12px;text-align:left;min-width:0}
+.kpis{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:10px}
+.kpi{background:var(--tint);border-radius:14px;padding:12px;text-align:left;min-width:0;display:flex;flex-direction:column;justify-content:flex-start}
 .kpi span{display:block;font-size:13px;color:var(--ink-soft);font-weight:700}
-.kpi b{display:block;font-size:23px;font-weight:900;margin-top:2px}
+.kpi b{display:block;font-size:23px;font-weight:900;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi em{font-style:normal;font-size:12.5px;color:var(--ink-soft);line-height:1.3;display:block}
 .kpi.alerte b{color:var(--dry)}
 .bandeau-routes{display:flex;align-items:center;gap:12px;width:100%;background:var(--err-bg);color:var(--err-ink);border-radius:14px;padding:12px 14px;text-align:left}
@@ -306,11 +306,11 @@ nav button.alerte .pastille{display:block}
     <div id="alSig" class="ecran"></div>
     <h3>Clapets anti-retour en dysfonctionnement</h3>
     <div id="alClap" class="ecran"></div>
-    <h3>Par commune – zone inondable potentielle</h3>
+    <h3>Bâtiments inondés et routes coupées par commune</h3>
     <p class="note" id="alScen" style="margin-top:-4px"></p>
     <input class="recherche" id="rechRoute" type="search" placeholder="Rechercher une rue, une commune…">
     <div id="listeRoutes" class="ecran"></div>
-    <p class="note">Routes coupées et bâtiments inondés d'après le scénario de crue retenu par l'astreinte (modélisation) : à confirmer sur le terrain.</p>
+    <p class="note">D'après le scénario de crue retenu par l'astreinte et les clapets en dysfonctionnement (modélisation) : à confirmer sur le terrain.</p>
   </section>
 
   <!-- Signaler -->
@@ -378,6 +378,7 @@ nav button.alerte .pastille{display:block}
   <div id="carte"></div>
   <div class="couches" id="couches">
     <button data-c="zone" class="on">Zone inondable potentielle</button>
+    <button data-c="batiments" class="on">Bâtiments inondés</button>
     <button data-c="routes" class="on">Routes coupées</button>
     <button data-c="mesures" class="on">Mesures</button>
     <button data-c="ouvrages" class="on">Ouvrages et signalements</button>
@@ -437,7 +438,7 @@ var TYPES_LIB = {}; TYPES.forEach(function (t) { TYPES_LIB[t.c] = t.l; });
 var GRAV_LIB = {gene: "Gêne", risque: "Risque", danger: "Danger"};
 var ETAT_LIB = {envoye: ["Envoyé", "envoye"], recu: ["Reçu par l'astreinte", "recu"], "pris en charge": ["Pris en charge", "pris"], clos: ["Traité", "clos"]};
 
-var etat = {moi: null, agent: null, sit: null, versions: {}, zone: null, routes: null, ouvrages: null, alertes: null, ecran: "situation", modeNiv: "echelle", resol: null,
+var etat = {moi: null, agent: null, sit: null, versions: {}, zone: null, routes: null, ouvrages: null, alertes: null, batiments: null, ecran: "situation", modeNiv: "echelle", resol: null,
             sig: {type: null, gravite: null, pos: null, photo: null}, timer: null, carte: null, couches: {}, posMarq: null};
 
 function $(id) { return document.getElementById(id); }
@@ -577,7 +578,7 @@ function actualiser() {
     if (!r.data) { etat.sit = null; afficher(); return; }
     etat.sit = r.data.contenu; stocker("sit", {situation: etat.sit});
     var v = etat.sit.versions || {}, aCharger = [];
-    ["zone", "routes", "ouvrages", "alertes"].forEach(function (k) {
+    ["zone", "batiments", "routes", "ouvrages", "alertes"].forEach(function (k) {
       if (!v[k]) { etat[k] = null; etat.versions[k] = null; } else if (etat.versions[k] !== v[k]) aCharger.push(k); });
     afficher(); dessinerCarte();
     if (!aCharger.length) return;
@@ -663,9 +664,8 @@ function afficher() {
   $("kPluie").parentNode.classList.toggle("alerte", p6 != null && p6 >= 20);
   // KPI zone inondable potentielle : scénario retenu par l'astreinte
   var z = s.zone || {};
-  $("kZone").textContent = z.q ? "Crue de " + z.q + " m³/s" : "Aucun scénario";
-  $("kZoneD").textContent = z.q ? "débit attendu retenu par l'astreinte – " + nb(z.batiments, 0) + " bâtiment(s)" + (z.clapets ? " · " + z.clapets + " clapet(s) HS" : "")
-    : (z.clapets ? z.clapets + " clapet(s) en dysfonctionnement" : "l'astreinte n'a pas retenu de débit");
+  $("kZone").textContent = z.q ? z.q + " m³/s" : "–";
+  $("kZoneD").textContent = z.q ? "débit attendu retenu par l'astreinte · " + nb(z.batiments, 0) + " bâtiment(s) inondé(s)" : "aucun scénario de crue retenu par l'astreinte";
   majAlertes();
   // infos
   var inf = s.infos || [];
@@ -741,7 +741,8 @@ function afficherAlertes() {
       '<div class="actions"><button class="btn ghost petit" data-aller="carte:zone">Voir la zone ›</button></div></div>';
   }).join("") : '<p class="vide">Aucun clapet signalé en dysfonctionnement.</p>';
   // communes
-  $("alScen").textContent = al.q ? "Scénario retenu par l'astreinte : crue de " + al.q + " m³/s (débit attendu)." : "Aucun scénario de débit retenu par l'astreinte pour le moment.";
+  $("alScen").textContent = (al.q ? "Scénario retenu par l'astreinte : crue de " + al.q + " m³/s (débit attendu)." : "Aucun scénario de crue retenu par l'astreinte.") +
+    (clap.length ? " Inclut le refoulement derrière " + clap.length + " clapet(s) en dysfonctionnement." : "");
   var q = sansAccent($("rechRoute").value), feats = (etat.routes && etat.routes.features) || [], g = {};
   feats.forEach(function (f, i) {
     var c = f.properties.commune || "Autre", n = nomRoute(f.properties);
@@ -757,7 +758,7 @@ function afficherAlertes() {
     return '<div class="commune"><div>' + esc(c) + "<span>" + noms.length + "</span></div>" +
       '<div class="chiffres"><span><b>' + nb(k.batiments || 0, 0) + "</b> bâtiment(s) inondé(s)</span><span><b>" + nb(k.routes != null ? k.routes : noms.length, 0) + "</b> tronçon(s) coupé(s)</span></div>" +
       (noms.length ? "<ul>" + noms.map(function (n) { return '<li><button data-routes="' + g[c][n].join(",") + '">' + esc(n) + "<em>Carte ›</em></button></li>"; }).join("") + "</ul>" : "") + "</div>";
-  }).join("") : '<p class="vide">' + (q ? "Aucun résultat." : al.q ? "Aucune route coupée ni bâtiment inondé pour ce scénario." : "Rien à signaler.") + "</p>";
+  }).join("") : '<p class="vide">' + (q ? "Aucun résultat." : (al.q || clap.length) ? "Aucune route coupée ni bâtiment inondé." : "Rien à signaler.") + "</p>";
 }
 $("rechRoute").oninput = afficherAlertes;
 $("alSig").onclick = function (ev) {
@@ -794,7 +795,7 @@ $("listeRoutes").onclick = function (ev) {
     var gr = L.geoJSON({type: "FeatureCollection", features: ids.map(function (i) { return etat.routes.features[i]; })});
     etat.carte.fitBounds(gr.getBounds(), {maxZoom: 17, padding: [40, 40]});
     var p = etat.routes.features[ids[0]].properties;
-    fiche("Route coupée", nomRoute(p), [esc(p.commune || ""), esc(p.nature || "") + (p.importance && p.importance !== "NC" ? " · importance " + esc(p.importance) : ""), "Tronçon inondé d'après le scénario actif."]);
+    fiche("Route coupée", nomRoute(p), [esc(p.commune || ""), esc(p.nature || "") + (p.importance && p.importance !== "NC" ? " · importance " + esc(p.importance) : ""), (p.src === "clapet" ? "Voie exposée au refoulement du clapet " + esc(p.code || "") + " (dysfonctionnement)." : "Tronçon inondé d'après le scénario de crue retenu par l'astreinte.")]);
   }, 120);
 };
 
@@ -810,9 +811,9 @@ function initCarte() {
   c.getContainer().querySelector(".leaflet-top.leaflet-right").style.marginTop = "48px";
   c.on("click", function () { $("fiche").classList.add("cache"); });
   etat.carte = c;
-  ["zone", "routes", "mesures", "ouvrages"].forEach(function (k) { etat.couches[k] = L.layerGroup().addTo(c); });
+  ["zone", "batiments", "routes", "mesures", "ouvrages"].forEach(function (k) { etat.couches[k] = L.layerGroup().addTo(c); });
   $("legende").innerHTML = "<b>Hauteur d'eau</b><br>" + LIB_ZONE.map(function (l, i) { return '<i style="background:' + COUL_ZONE[i] + '"></i>' + l; }).join("<br>") +
-    '<br><i style="background:#a569bd"></i>Refoulement clapet';
+    '<br><i style="background:#a569bd"></i>Refoulement clapet<br><i style="background:#e74c3c"></i>Bâtiment inondé';
   dessinerCarte();
 }
 $("couches").onclick = function (ev) {
@@ -848,10 +849,17 @@ function dessinerCarte() {
   else info = "Zone inondable potentielle pour une crue de " + z.q + " m³/s (débit attendu retenu par l'astreinte).";
   $("carteInfo").textContent = info; $("carteInfo").classList.toggle("cache", !$("couches").querySelector('[data-c="zone"]').classList.contains("on"));
   $("carteInfo").style.background = z.q ? "var(--tint)" : ""; $("carteInfo").style.color = z.q ? "var(--ink)" : "";
+  if (etat.batiments && etat.batiments.features && etat.batiments.features.length) {
+    L.geoJSON(etat.batiments, {style: function (f) { var cl = f.properties.src === "clapet";
+      return {color: cl ? "#6c3483" : "#a93226", weight: 1, fillColor: cl ? "#8e44ad" : "#e74c3c", fillOpacity: 0.85}; },
+      onEachFeature: function (f, l) { l.on("click", function (e) { L.DomEvent.stop(e); var p = f.properties;
+        fiche(p.src === "clapet" ? "Bâtiment exposé – clapet " + (p.code || "") : "Bâtiment inondé", p.commune || "Bâtiment",
+          [p.src === "clapet" ? "Refoulement possible derrière le clapet en dysfonctionnement" + (p.logements ? " · " + esc(p.logements) + " logement(s)" : "") : "D'après le scénario de crue retenu par l'astreinte."]); }); }}).addTo(C.batiments);
+  }
   if (etat.routes && etat.routes.features) {
-    L.geoJSON(etat.routes, {style: {color: "#d0021b", weight: 5, opacity: 0.9}, onEachFeature: function (f, l) {
+    L.geoJSON(etat.routes, {style: function (f) { return {color: f.properties.src === "clapet" ? "#6c3483" : "#d0021b", weight: 5, opacity: 0.9}; }, onEachFeature: function (f, l) {
       l.on("click", function (e) { L.DomEvent.stop(e); var p = f.properties;
-        fiche("Route coupée", nomRoute(p), [esc(p.commune || ""), esc(p.nature || ""), "Tronçon inondé d'après le scénario actif."]); });
+        fiche("Route coupée", nomRoute(p), [esc(p.commune || ""), esc(p.nature || ""), (p.src === "clapet" ? "Voie exposée au refoulement du clapet " + esc(p.code || "") + " (dysfonctionnement)." : "Tronçon inondé d'après le scénario de crue retenu par l'astreinte.")]); });
     }}).addTo(C.routes);
   }
   (s.rivieres || []).forEach(function (r) {
