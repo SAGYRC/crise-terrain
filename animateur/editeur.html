@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Éditeur de scénario de crue – SAGYRC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+:root{--marine:#0b3a78;--bleu:#0a6fcf;--fond:#f5f9fd;--bord:#cfe0f1;--gris:#3f5f86;--vert:#2e7d4f;--rouge:#c0392b;--orange:#b5560a;--violet:#7b61c9}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--fond);color:var(--marine);font:13.5px Nunito,"Segoe UI",system-ui,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.cache{display:none!important}
+header.entete{background:#fff;border-bottom:1px solid var(--bord)}
+header.entete .barre{display:flex;align-items:center;gap:14px;padding:10px 22px 8px;flex-wrap:wrap}
+header.entete .logo{height:44px}
+header.entete .sep{width:1px;align-self:stretch;background:var(--bord)}
+header.entete .titre b{display:block;font-size:19px;font-weight:900;line-height:1.15}
+header.entete .titre span{font-size:12.5px;color:var(--bleu);font-weight:700}
+header.entete .droite{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--gris)}
+header.entete .qui{background:#e8f2fc;border-radius:99px;padding:5px 12px;font-weight:700}
+header.entete .qui:empty{display:none}
+header.entete .lien{color:var(--bleu);text-decoration:none;font-weight:800;border:1.5px solid var(--bord);border-radius:99px;padding:5px 13px;background:#fff}
+.vagues{display:block;width:100%;height:16px}
+.carte{background:#fff;border:1px solid var(--bord);border-radius:14px;padding:14px}
+h2{margin:0 0 4px;font-size:15px;font-weight:900}
+.aide{font-size:12px;color:var(--gris);margin:2px 0 8px}
+label{display:block;font-size:12px;font-weight:800;color:var(--gris);margin-top:9px}
+input[type=text],input[type=email],input[type=password],input[type=number],input[type=datetime-local],input[type=time],select,textarea{width:100%;min-height:32px;border:1.5px solid var(--bord);border-radius:8px;padding:3px 8px;background:#fff;margin-top:3px}
+textarea{min-height:54px;resize:vertical}
+.rang{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.rang>*{flex:1;min-width:0}
+.bt{min-height:34px;padding:0 14px;border-radius:99px;border:1.5px solid var(--bord);background:#fff;color:var(--marine);font-weight:800;white-space:nowrap}
+.bt:hover{border-color:var(--bleu)}
+.bt.p{background:var(--bleu);border-color:var(--bleu);color:#fff}
+.bt.m{background:var(--marine);border-color:var(--marine);color:#fff}
+.bt.r{color:var(--rouge);border-color:#f1b8b0}
+.bt.s{min-height:26px;padding:0 9px;font-size:12px}
+.bt:disabled{opacity:.45;cursor:default}
+.msg{border-radius:8px;padding:8px 12px;margin-top:8px;font-weight:700}
+.msg.err{background:#fdecea;color:#922b21}.msg.ok{background:#e8f6ee;color:#145a32}.msg.info{background:#eaf2fb;color:var(--marine)}
+.page{max-width:1500px;margin:0 auto;padding:14px 20px 40px}
+.barre-scen{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.barre-scen select{max-width:520px;margin:0}
+.barre-scen .etat{font-size:12px;font-weight:800;color:var(--gris)}
+.barre-scen .etat.mod{color:var(--orange)}
+.onglets{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;border-bottom:2px solid var(--bord)}
+.onglets button{border:0;background:none;padding:8px 14px;font-weight:900;color:var(--gris);border-bottom:3px solid transparent;margin-bottom:-2px}
+.onglets button.on{color:var(--bleu);border-bottom-color:var(--bleu)}
+.onglets button small{font-weight:700;color:var(--gris);margin-left:3px}
+table.t{width:100%;border-collapse:collapse;font-size:12.5px}
+table.t th{text-align:left;font-size:10.5px;color:var(--gris);text-transform:uppercase;letter-spacing:.03em;border-bottom:1.5px solid #e6eef7;padding:5px 4px;background:#fff;position:sticky;top:0;z-index:1}
+table.t td{padding:3px 4px;border-bottom:1px solid #f0f4f9;vertical-align:top}
+table.t td input,table.t td select,table.t td textarea{margin:0;min-height:28px;padding:2px 6px;border-radius:6px}
+table.t td textarea{min-height:28px}
+table.t tr:hover td{background:#f8fbfe}
+.num input{text-align:right;font-variant-numeric:tabular-nums;width:72px}
+.quand{display:flex;gap:4px}
+.quand select{width:112px}.quand input{width:66px}
+.outils .quand input{width:66px;min-width:0}.outils .quand select{width:112px;min-width:0}
+.det{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+.det .large{grid-column:1/-1}
+.det span{display:block;font-size:10.5px;color:var(--gris);font-weight:800}
+.tag{display:inline-block;font-size:10.5px;font-weight:900;color:#fff;border-radius:5px;padding:1px 6px}
+.defile{max-height:calc(100vh - 290px);overflow:auto;border:1px solid #edf3f9;border-radius:10px}
+.outils{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:6px 0 10px;background:#f5f8fc;border-radius:10px;padding:8px 10px}
+.outils label{margin-top:0}
+.outils input,.outils select{width:auto;min-width:80px}
+.grille{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.legende{display:flex;gap:14px;font-size:11.5px;color:var(--gris);flex-wrap:wrap;margin-top:4px}
+.legende i{display:inline-block;width:16px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.mini{font-size:11px;color:var(--gris)}
+.manque{background:#fff4e0;border-radius:8px;padding:6px 10px;margin:6px 0;font-size:12px;color:#8a5200}
+.connexion{max-width:460px;margin:60px auto;padding:0 16px}
+@media (max-width:1000px){.grille{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="entete">
+  <svg class="vagues" viewBox="0 0 1200 16" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0H1200V7C1000 16 800 2 600 8S200 15 0 6Z" fill="#2fa4ec" opacity=".55"/><path d="M0 0H1200V4C980 11 800 0 600 5S220 10 0 3Z" fill="#0a6fcf"/></svg>
+  <div class="barre">
+    <img class="logo" src="logo_sagyrc.png" alt="SAGYRC – Bassin de l'Yzeron">
+    <span class="sep"></span>
+    <div class="titre"><b>Éditeur de scénario de crue</b><span>Ajuster finement un scénario réel ou fictif</span></div>
+    <div class="droite"><span id="qui" class="qui"></span><a class="lien" href="generateur.html">Créer un scénario</a><a class="lien" href="animateur.html">← Retour à l'animateur</a></div>
+  </div>
+</header>
+
+<section id="ecConnexion" class="connexion cache">
+  <div class="carte">
+    <h2>Connexion animateur</h2>
+    <label for="email">Adresse e-mail</label><input id="email" type="email" autocomplete="username">
+    <label for="mdp">Mot de passe</label><input id="mdp" type="password" autocomplete="current-password">
+    <div class="rang" style="margin-top:12px"><button class="bt p" id="btConnexion">Se connecter</button></div>
+    <div id="msgConnexion"></div>
+  </div>
+</section>
+
+<div id="ecEd" class="page cache">
+  <div class="barre-scen">
+    <select id="choixScen" aria-label="Scénario à modifier"></select>
+    <button class="bt m" id="btEnreg">Enregistrer</button>
+    <button class="bt" id="btDupl">Dupliquer</button>
+    <button class="bt r" id="btSuppr">Supprimer</button>
+    <a class="bt" id="btSession" href="animateur.html" style="display:inline-flex;align-items:center;text-decoration:none">Créer une session →</a>
+    <span class="etat" id="etat"></span>
+  </div>
+  <div id="msg"></div>
+  <div class="onglets" id="onglets"></div>
+  <div id="contenu"></div>
+</div>
+
+<script>
+var SUPABASE_URL = 'https://rfojuesvlasdmnuflkfh.supabase.co';
+var SUPABASE_CLE = 'sb_publishable_Yny_zyyIompw7vu3jzftIw_QrTxRoB3';
+var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_CLE);
+
+/* ---------- référentiels (identiques au créateur de scénarios) */
+var REF = {
+  SBV: [['SBV_YZERON_AMONT', 'Yzeron amont', 30.32], ['SBV_DRONAU', 'Dronau', 8.55], ['SBV_MILONIERE', 'Milonière', 4.13], ['SBV_PRESLES', 'Presles', 3.32], ['SBV_MERCIER', 'Mercier', 4.99],
+        ['SBV_CHAUDANNE', 'Chaudanne', 3.72], ['SBV_CHARBONNIERES', 'Charbonnières', 14.37], ['SBV_RATIER', 'Ratier', 13.57], ['SBV_RIBES', 'Ribes', 5.86], ['SBV_MEGINANT', 'Méginant', 3.09],
+        ['SBV_POIRIER', 'Poirier', 3.89], ['SBV_BEFFE', 'Beffe', 3.16], ['SBV_LARNY', 'Larny', 4.58], ['SBV_GOUR', 'Gour', 3.72], ['SBV_CERF_DE_GARDE', 'Cerf de Garde', 5.03],
+        ['SBV_YZERON_MEDIAN', 'Yzeron médian', 10.53], ['SBV_YZERON_AVAL', 'Yzeron aval', 12.21], ['SBV_CHENE', 'Chêne', 7.34], ['SBV_MERDARET', 'Merdaret', 2.37], ['SBV_BOULEAU', 'Bouleau', 0.15]],
+  STATIONS: [['V301502002', 'Yzeron à Francheville', '#0a6fcf', 1], ['V301501002', 'Yzeron à Craponne', '#e08a1a', 1], ['V30150230', 'Charbonnières', '#7b61c9', 2],
+             ['V301502401', 'Ratier', '#2e7d4f', 2], ['V3015810', 'Mercier', '#8e5a2b', 2], ['GLV0300Q', 'Chaudanne – Léchère', '#c0392b', 2], ['PT_BARGE', 'Chaudanne – pont de la Barge', '#d4ac0d', 2]],
+  SEUILS: {V30150230: [3.4, 5], V301502401: [2.5, 3.6], V3015810: [null, 1.7], GLV0300Q: [1, 1.5], PT_BARGE: [1, 1.4]},
+  POINTS: [['696009', 'Stade du Merlo', 1.7, 3.5], ['691101', 'Pont rouge', 2.18, 2.88], ['691105', 'Rue des Platanes', 1.96, 3.36], ['691104', 'Pont de Limbourg', 2.59, 3.2],
+           ['692604', 'Résidence Graziella', 2.5, 2.9], ['696001', "Pont d'Oullins", null, 3.41], ['696002', 'Passerelle Chabrières', 2.5, 3.3], ['696003', 'Passerelle Lionel Terray', 2.64, 3.45],
+           ['696005', 'Pont Blanc', 1.79, 2.86], ['691601', 'Pont des Bruyères', null, null], ['693401', 'Ruette Mulet', null, null]],
+  CLAPETS: ['S1-Rj1', 'S1-Rj3', 'S1-Rj4', 'S1-Rj5', 'S2-Rj3', 'S2-Rj4', 'S2-Rj5', 'S2-Rj6', 'S2-Rj8', 'S4-Rj10', 'S4-Rj11', 'S4-Rj12', 'S4-Rj4', 'S4-Rj5', 'S4-Rj9',
+            'S5-Rj1', 'S6-Rj1', 'S6-Rj10', 'S6-Rj11', 'S6-Rj13', 'S6-Rj16', 'S6-Rj3', 'S6-Rj4', 'S6-Rj5', 'S6-Rj6', 'S6-Rj8', 'S6-Rj9', 'S7-Rj25', 'S7-Rj26a',
+            'S7-Rj26b', 'S7-Rj28', 'S7-Rj31', 'S7-Rj32', 'S7-Rj33', 'S7-Rj34a', 'S7-Rj34b', 'S7-Rj35', 'S7-Rj36', 'S7-Rj37', 'S8-Rj10', 'S8-Rj11', 'S8-Rj12',
+            'S8-Rj13', 'S8-Rj14', 'S8-Rj15', 'S8-Rj16', 'S8-Rj17', 'S8-Rj18', 'S8-Rj19', 'S8-Rj20', 'S8-Rj22', 'S8-Rj23', 'S8-Rj24', 'S8-Rj6', 'S8-Rj7', 'S8-Rj8', 'S8-Rj9'],
+  BATARDEAUX: [['BAT-S1', 'Batardeau permanent – Tassin (S1)'], ['BAT-S7', "Batardeau amovible – passerelle d'Oullins (S7)"]],
+  DESORDRES: ['Embâcle sur pont', 'Arbre tombé', 'Débordement', 'Route inondée', 'Érosion de berge', 'Désordre sur digue', 'Ouvrage endommagé', 'Clapet bloqué / fuyant', 'Niveau anormal', 'Autre'],
+  SCEN_Q: [68, 90, 97, 109, 113, 125, 129, 134, 141, 147, 153, 157, 162, 165, 169]
+};
+var NIV = {NORMAL: ['#7f8c8d', 'Retour à la normale'], N0: ['#3f5f86', 'Veille renforcée'], N1: ['#b08900', 'Pré-alerte'], N2: ['#c75c0a', 'Alerte'], N2bis: ['#c0392b', 'Vigilance clapets'], N3: ['#8e1b12', 'Danger']};
+var TYPES_EV = {releve_vigie: ['Relevé Vigie', '#0a6fcf'], presence_vigie: ['Appel Vigie', '#7b61c9'], clapet: ['Clapet', '#c0392b'], batardeau: ['Batardeau', '#2e7d4f'],
+                signalement: ['Signalement terrain', '#b5560a'], message: ['Appel / message', '#3f5f86'], consigne: ['Consigne animateur', '#9aa9ba']};
+var CANAL = {presence_vigie: 'Appel de Vigie (à saisir par le joueur)', message: 'Appel / message à lire', releve_vigie: 'Relevé Vigie (injecté dans QGIS)', clapet: "État d'ouvrage (injecté)",
+             batardeau: "État d'ouvrage (injecté)", signalement: 'Signalement terrain (injecté)', consigne: 'Consigne animateur (non transmise)'};
+var TESTS = {episode: "Ouverture de l'épisode", niveau: 'Passage de niveau', niveau_a: 'Niveau tenu à cette heure', action: 'Action de la procédure', action_f: 'Action facultative',
+             scenario: 'Zone inondable affichée', vigie: 'Présence de Vigie saisie', manuel: 'À constater par l\'animateur'};
+
+var E = {liste: [], sc: null, pas: [], ev: [], att: [], der: [], proc: [], sessions: 0, onglet: 'general', modifie: false, prevAuto: false, vuePluie: 'pluie'};
+
+function $(id) { return document.getElementById(id); }
+function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]; }); }
+function fr(x, d) { return x == null || isNaN(x) ? '–' : Number(x).toFixed(d).replace('.', ','); }
+function nb(v) { var x = parseFloat(String(v).replace(',', '.')); return isNaN(x) ? null : x; }
+function message(txt, type) { $('msg').innerHTML = txt ? '<div class="msg ' + (type || 'info') + '">' + esc(txt) + '</div>' : ''; }
+function erreur(e) { return (e && (e.message || e.error_description)) || String(e); }
+function modifie() { E.modifie = true; $('etat').textContent = 'Modifications non enregistrées'; $('etat').className = 'etat mod'; }
+function nomPoint(c) { var p = REF.POINTS.filter(function (x) { return x[0] === c; })[0]; return p ? p[1] : c; }
+
+/* ---------- heure simulée : jour + heure d'horloge <-> H+ */
+function debut() { return new Date(E.sc.debut_simule); }
+function duree() { return E.pas.length ? E.pas[E.pas.length - 1].h : (E.sc.duree_h || 24); }
+function jours() {
+  var d0 = debut(), fin = new Date(d0.getTime() + duree() * 3600e3), j = [], d = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate());
+  while (d <= fin) { j.push(new Date(d)); d.setDate(d.getDate() + 1); }
+  return j;
+}
+function libJour(d) { return d.toLocaleDateString('fr-FR', {weekday: 'short', day: 'numeric', month: 'short'}); }
+function versJH(h) {
+  var t = new Date(debut().getTime() + h * 3600e3), js = jours(), j = 0;
+  js.forEach(function (d, i) { if (t >= d) j = i; });
+  return {j: j, hm: ('0' + t.getHours()).slice(-2) + ':' + ('0' + t.getMinutes()).slice(-2)};
+}
+function depuisJH(j, hm) {
+  var m = /^(\d{1,2})[:hH](\d{2})$/.exec(String(hm).trim()); if (!m) return null;
+  var d = new Date(jours()[j] || jours()[0]); d.setHours(+m[1], +m[2], 0, 0);
+  return Math.round((d.getTime() - debut().getTime()) / 36e3) / 100;
+}
+function horloge(h) { var x = versJH(h); return x.hm; }
+function champQuand(i, h, cls) {
+  var x = versJH(h), js = jours();
+  return '<div class="quand"><select data-i="' + i + '" data-f="_jour" class="' + (cls || '') + '">' + js.map(function (d, k) { return '<option value="' + k + '"' + (k === x.j ? ' selected' : '') + '>' + esc(libJour(d)) + '</option>'; }).join('')
+    + '</select><input type="text" data-i="' + i + '" data-f="_heure" class="' + (cls || '') + '" value="' + x.hm + '" title="Heure simulée (HH:MM) – H+' + fr(h, 2) + '"></div>';
+}
+
+/* ---------- connexion */
+async function demarrage() {
+  var s = await sb.auth.getSession();
+  if (!s.data.session) { $('ecConnexion').classList.remove('cache'); return; }
+  var r = await sb.rpc('est_animateur');
+  if (!r.data) { $('ecConnexion').classList.remove('cache'); $('msgConnexion').innerHTML = '<div class="msg err">Ce compte n\'est pas déclaré comme animateur.</div>'; return; }
+  $('qui').textContent = s.data.session.user.email;
+  $('ecConnexion').classList.add('cache'); $('ecEd').classList.remove('cache');
+  var p = await sb.from('procedure_ref').select('*').order('id'); E.proc = p.data || [];
+  await chargerListe(new URLSearchParams(location.search).get('scenario'));
+}
+$('btConnexion').onclick = async function () {
+  var r = await sb.auth.signInWithPassword({email: $('email').value.trim(), password: $('mdp').value});
+  if (r.error) return $('msgConnexion').innerHTML = '<div class="msg err">Connexion impossible : ' + esc(r.error.message) + '</div>';
+  demarrage();
+};
+async function chargerListe(id) {
+  var r = await sb.from('scenarios').select('id, nom, duree_h').order('id');
+  E.liste = r.data || [];
+  $('choixScen').innerHTML = E.liste.map(function (s) { return '<option value="' + s.id + '">' + esc(s.nom) + ' – ' + s.duree_h + ' h</option>'; }).join('');
+  if (!E.liste.length) { $('contenu').innerHTML = '<div class="carte">Aucun scénario. <a href="generateur.html">Créer un scénario →</a></div>'; return; }
+  var choisi = id && E.liste.some(function (s) { return String(s.id) === String(id); }) ? id : E.liste[0].id;
+  $('choixScen').value = choisi; await charger(choisi);
+}
+$('choixScen').onchange = async function () {
+  if (E.modifie && !confirm('Des modifications ne sont pas enregistrées. Les abandonner ?')) { $('choixScen').value = E.sc.id; return; }
+  await charger($('choixScen').value);
+};
+async function charger(id) {
+  message('Chargement…');
+  var r = await Promise.all([sb.from('scenarios').select('*').eq('id', id).single(), sb.from('scenario_pas').select('*').eq('scenario_id', id).order('h'),
+    sb.from('scenario_evenements').select('*').eq('scenario_id', id).order('h').order('id'), sb.from('scenario_attendus').select('*').eq('scenario_id', id).order('h').order('id'),
+    sb.from('sessions').select('id', {count: 'exact', head: true}).eq('scenario_id', id)]);
+  var e = r.filter(function (x) { return x.error; })[0]; if (e) return message(erreur(e.error), 'err');
+  E.sc = r[0].data; E.pas = r[1].data; E.ev = r[2].data; E.att = r[3].data; E.sessions = r[4].count || 0;
+  E.pas.forEach(function (p) { p.q = p.q || {}; p.pluie_sbv = p.pluie_sbv || {}; p.prev_sbv = p.prev_sbv || {}; });
+  E.ev.forEach(function (x) { x.donnees = x.donnees || {}; });
+  E.der = Array.isArray(E.sc.deroule) ? E.sc.deroule.slice() : [];
+  E.modifie = false; E.prevAuto = false; $('etat').textContent = E.sc.modifie_le ? 'Modifié le ' + new Date(E.sc.modifie_le).toLocaleString('fr-FR', {dateStyle: 'short', timeStyle: 'short'}) : ''; $('etat').className = 'etat';
+  history.replaceState(null, '', '?scenario=' + id);
+  $('btSession').href = 'animateur.html?scenario=' + id;
+  message(''); dessinerOnglets(); afficher();
+}
+
+/* ---------- onglets */
+var ONGLETS = [['general', 'Général'], ['deroule', 'Déroulé pédagogique'], ['attendus', 'Objectifs attendus'], ['debits', 'Débits des stations'], ['pluie', 'Pluie par sous-bassin'], ['evenements', 'Événements']];
+function dessinerOnglets() {
+  var n = {deroule: E.der.length, attendus: E.att.length, evenements: E.ev.length};
+  $('onglets').innerHTML = ONGLETS.map(function (o) { return '<button data-o="' + o[0] + '" class="' + (o[0] === E.onglet ? 'on' : '') + '">' + o[1] + (n[o[0]] != null ? '<small>(' + n[o[0]] + ')</small>' : '') + '</button>'; }).join('');
+}
+$('onglets').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; E.onglet = b.getAttribute('data-o'); dessinerOnglets(); afficher(); };
+function afficher() { ({general: vGeneral, deroule: vDeroule, attendus: vAttendus, debits: vDebits, pluie: vPluie, evenements: vEvenements})[E.onglet](); }
+
+/* ---------- Général */
+function vGeneral() {
+  var d = debut(), p = function (n) { return ('0' + n).slice(-2); };
+  var loc = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+  $('contenu').innerHTML = '<div class="grille"><div class="carte"><h2>Le scénario</h2>'
+    + '<label for="gNom">Nom</label><input type="text" id="gNom" value="' + esc(E.sc.nom) + '">'
+    + '<div class="rang"><div><label for="gDebut">Début simulé (première heure de l\'hydrogramme)</label><input type="datetime-local" id="gDebut" value="' + loc + '"></div>'
+    + '<div style="flex:.5"><label>Durée</label><input type="text" value="' + duree() + ' h" disabled></div></div>'
+    + '<p class="aide">L\'heure simulée de l\'exercice démarre à cette date et heure : toutes les heures des onglets suivantes en dépendent.</p>'
+    + '<label for="gDesc">Description (affichée à l\'animateur au choix du scénario)</label><textarea id="gDesc" rows="5">' + esc(E.sc.description || '') + '</textarea>'
+    + '<label for="gSource">Source des données</label><input type="text" id="gSource" value="' + esc(E.sc.source || '') + '">'
+    + '<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="gActif"' + (E.sc.actif !== false ? ' checked' : '') + ' style="width:auto;min-height:0;margin:0"> Proposé à l\'animateur</label>'
+    + '<div class="outils" style="margin-top:12px"><div><label for="gProl">Prolonger le scénario de</label><input type="number" id="gProl" min="1" max="48" value="6"> h</div><button class="bt s" id="btProl">Prolonger</button>'
+    + '<span class="mini">Ajoute des heures en reprenant la décrue de la dernière heure, sans pluie.</span></div></div>'
+    + '<div class="carte"><h2>En bref</h2>' + resume() + '</div></div>';
+  $('gNom').oninput = function () { E.sc.nom = this.value; modifie(); };
+  $('gDesc').oninput = function () { E.sc.description = this.value; modifie(); };
+  $('gSource').oninput = function () { E.sc.source = this.value; modifie(); };
+  $('gActif').onchange = function () { E.sc.actif = this.checked; modifie(); };
+  $('gDebut').onchange = function () { var d = new Date(this.value); if (!isNaN(d.getTime())) { E.sc.debut_simule = d.toISOString(); modifie(); vGeneral(); } };
+  $('btProl').onclick = function () {
+    var n = Math.max(1, Math.min(48, Math.round(nb($('gProl').value) || 0))), der = E.pas[E.pas.length - 1];
+    for (var k = 1; k <= n; k++) {
+      var q = {}; Object.keys(der.q).forEach(function (c) { q[c] = Math.round(der.q[c] * Math.pow(0.93, k)); });
+      E.pas.push({scenario_id: E.sc.id, h: der.h + k, q: q, pluie_1h: 0, pluie_sbv: zeroSbv(), prev_sbv: zeroSbv()});
+    }
+    modifie(); vGeneral();
+  };
+}
+function zeroSbv() { var o = {}; REF.SBV.forEach(function (s) { o[s[0]] = 0; }); return o; }
+function resume() {
+  var qmax = 0, tq = 0; E.pas.forEach(function (p) { var v = (p.q.V301502002 || 0) / 1000; if (v > qmax) { qmax = v; tq = p.h; } });
+  var cum = 0; E.pas.forEach(function (p) { cum += Number(p.pluie_1h) || 0; });
+  var niv = E.att.filter(function (a) { return a.test === 'niveau'; }).map(function (a) { return '<span class="tag" style="background:' + (NIV[a.valeur] || ['#999'])[0] + '">' + esc(a.valeur) + '</span> ' + horloge(a.h); }).join(' · ');
+  var mq = manquesProcedure();
+  return '<table class="t"><tbody><tr><td>Pic à Francheville</td><td><b>' + fr(qmax, 1) + ' m³/s</b> à ' + horloge(tq) + '</td></tr>'
+    + '<tr><td>Pluie moyenne cumulée</td><td><b>' + fr(cum, 0) + ' mm</b></td></tr>'
+    + '<tr><td>Niveaux attendus</td><td>' + (niv || '–') + '</td></tr>'
+    + '<tr><td>Événements · attendus</td><td>' + E.ev.length + ' · ' + E.att.length + '</td></tr>'
+    + '<tr><td>Sessions qui utilisent ce scénario</td><td>' + E.sessions + '</td></tr></tbody></table>'
+    + (mq.length ? '<div class="manque"><b>' + mq.length + ' action(s) de la procédure absente(s) des attendus</b> pour les niveaux atteints : onglet « Objectifs attendus » › « Mettre à jour les actions de la procédure ».</div>' : '<p class="aide">Toutes les actions de la procédure des niveaux atteints figurent dans les attendus.</p>');
+}
+
+/* ---------- tableaux éditables génériques */
+function ligneVide(cols) { return '<tr><td colspan="' + cols + '" class="mini" style="padding:14px">Aucune ligne.</td></tr>'; }
+function lierTableau(id, liste, apres) {
+  var el = $(id);
+  el.addEventListener('change', function (e) {
+    var t = e.target, i = t.getAttribute('data-i'), f = t.getAttribute('data-f'); if (i == null || !f) return;
+    var o = liste()[+i];
+    if (f === '_jour' || f === '_heure') {
+      var tr = t.closest('tr'), j = +tr.querySelector('[data-f="_jour"]').value, hm = tr.querySelector('[data-f="_heure"]').value, h = depuisJH(j, hm);
+      if (h == null || h < 0 || h > duree()) { message('Heure invalide ou hors de la durée du scénario (format HH:MM).', 'err'); return apres(true); }
+      o.h = h; message(''); modifie(); return apres(true);
+    }
+    var v = t.type === 'checkbox' ? t.checked : t.value;
+    if (t.getAttribute('data-n')) v = nb(v);
+    var parts = f.split('.'); if (parts.length === 2) { o[parts[0]] = o[parts[0]] || {}; o[parts[0]][parts[1]] = v; } else o[f] = v;
+    modifie(); if (t.getAttribute('data-r')) apres(false);
+  });
+  el.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-act]'); if (!b) return;
+    var i = +b.getAttribute('data-i'), L = liste(), a = b.getAttribute('data-act');
+    if (a === 'sup') L.splice(i, 1);
+    if (a === 'dup') { var c = JSON.parse(JSON.stringify(L[i])); delete c.id; c.h = Math.min(duree(), Math.round((c.h + 0.25) * 100) / 100); L.splice(i + 1, 0, c); }
+    if (a === 'moins' || a === 'plus') { L[i].h = Math.max(0, Math.min(duree(), Math.round((L[i].h + (a === 'plus' ? 0.25 : -0.25)) * 100) / 100)); }
+    modifie(); apres(true);
+  });
+}
+function boutonsLigne(i) {
+  return '<td style="white-space:nowrap"><button class="bt s" data-act="moins" data-i="' + i + '" title="15 min plus tôt">−15</button> <button class="bt s" data-act="plus" data-i="' + i + '" title="15 min plus tard">+15</button> '
+    + '<button class="bt s" data-act="dup" data-i="' + i + '" title="Dupliquer">⧉</button> <button class="bt s" data-act="sup" data-i="' + i + '" title="Supprimer">×</button></td>';
+}
+function trier(L) { L.sort(function (a, b) { return a.h - b.h; }); }
+
+/* ---------- Déroulé pédagogique */
+function vDeroule() {
+  trier(E.der);
+  $('contenu').innerHTML = '<div class="carte"><h2>Déroulé pédagogique</h2><p class="aide">Les grandes phases que le scénario fait vivre au joueur, dans l\'ordre. Elles guident l\'animateur et le débriefing.</p>'
+    + '<div class="outils"><button class="bt s p" id="btAjD">+ Ajouter une phase</button><button class="bt s" id="btPropD">Proposer à partir des attendus et des événements</button></div>'
+    + '<div class="defile"><table class="t" id="tDer"><thead><tr><th style="width:180px">Heure simulée</th><th style="width:28%">Phase</th><th>Ce qui se passe, ce qui est attendu</th><th style="width:170px"></th></tr></thead><tbody>'
+    + (E.der.length ? E.der.map(function (p, i) {
+      return '<tr><td>' + champQuand(i, p.h) + '</td><td><input type="text" data-i="' + i + '" data-f="titre" value="' + esc(p.titre) + '"></td><td><textarea data-i="' + i + '" data-f="detail" rows="2">' + esc(p.detail) + '</textarea></td>' + boutonsLigne(i) + '</tr>';
+    }).join('') : ligneVide(4)) + '</tbody></table></div></div>';
+  lierTableau('tDer', function () { return E.der; }, function (re) { if (re) { vDeroule(); dessinerOnglets(); } });
+  $('btAjD').onclick = function () { E.der.push({h: 0, titre: 'Nouvelle phase', detail: ''}); modifie(); vDeroule(); dessinerOnglets(); };
+  $('btPropD').onclick = function () {
+    if (E.der.length && !confirm('Remplacer le déroulé actuel par une proposition ?')) return;
+    E.der = proposerDeroule(); modifie(); vDeroule(); dessinerOnglets();
+  };
+}
+function proposerDeroule() {
+  var ph = [];
+  E.att.forEach(function (a) {
+    if (a.test === 'episode') ph.push({h: a.h, titre: "Ouverture de l'épisode", detail: a.libelle});
+    if (a.test === 'niveau') ph.push({h: a.h, titre: 'Niveau ' + a.valeur + ' – ' + (NIV[a.valeur] || ['', ''])[1], detail: a.libelle});
+    if (a.test === 'niveau_a') ph.push({h: a.h, titre: 'Décrue apparente : le piège', detail: a.libelle});
+    if (a.test === 'scenario') ph.push({h: a.h, titre: 'Zone inondable à afficher', detail: a.libelle});
+  });
+  var qmax = 0, tq = 0; E.pas.forEach(function (p) { var v = (p.q.V301502002 || 0) / 1000; if (v > qmax) { qmax = v; tq = p.h; } });
+  ph.push({h: tq, titre: 'Pic de crue', detail: fr(qmax, 0) + ' m³/s à Francheville.'});
+  E.ev.filter(function (e) { return e.type === 'clapet' || (e.type === 'signalement' && e.donnees.gravite === 'danger'); }).slice(0, 6).forEach(function (e) { ph.push({h: e.h, titre: e.titre, detail: e.consigne || ''}); });
+  trier(ph); return ph;
+}
+
+/* ---------- Objectifs attendus */
+function vAttendus() {
+  trier(E.att);
+  var mq = manquesProcedure();
+  var optNiv = function (v) { return Object.keys(NIV).map(function (k) { return '<option' + (k === v ? ' selected' : '') + '>' + k + '</option>'; }).join(''); };
+  var champValeur = function (a, i) {
+    if (a.test === 'niveau' || a.test === 'niveau_a') return '<select data-i="' + i + '" data-f="valeur">' + optNiv(a.valeur) + '</select>';
+    if (a.test === 'action' || a.test === 'action_f') return '<select data-i="' + i + '" data-f="valeur" data-r="1">' + E.proc.map(function (p) { return '<option value="' + esc(p.libelle) + '"' + (p.libelle === a.valeur ? ' selected' : '') + '>' + esc((p.niveau === 'TOUS' ? 'Prise' : p.niveau) + ' – ' + p.libelle) + '</option>'; }).join('')
+      + (E.proc.some(function (p) { return p.libelle === a.valeur; }) ? '' : '<option selected value="' + esc(a.valeur) + '">' + esc(a.valeur) + ' (hors procédure)</option>') + '</select>';
+    if (a.test === 'scenario') return '<select data-i="' + i + '" data-f="valeur">' + REF.SCEN_Q.map(function (q) { return '<option value="' + q + '"' + (String(q) === String(a.valeur) ? ' selected' : '') + '>' + q + ' m³/s</option>'; }).join('') + '</select>';
+    if (a.test === 'vigie') { var v = String(a.valeur || '|').split('|');
+      return '<div class="quand"><select data-i="' + i + '" data-f="_vpt" style="width:150px">' + REF.POINTS.map(function (p) { return '<option value="' + p[0] + '"' + (p[0] === v[0] ? ' selected' : '') + '>' + esc(p[1]) + '</option>'; }).join('') + '</select>'
+        + '<select data-i="' + i + '" data-f="_vst" style="width:110px"><option' + (v[1] === 'en place' ? ' selected' : '') + '>en place</option><option' + (v[1] === 'indisponible' ? ' selected' : '') + '>indisponible</option></select></div>'; }
+    if (a.test === 'episode') return '<span class="mini">épisode ouvert</span>';
+    return '<span class="mini">constaté à la main</span>';
+  };
+  $('contenu').innerHTML = '<div class="carte"><h2>Objectifs attendus du joueur</h2><p class="aide">Contrôlés automatiquement pendant l\'exercice (sauf « à constater »). Chaque attendu a une heure simulée et une tolérance : au-delà, il est compté en retard puis non fait.</p>'
+    + (mq.length ? '<div class="manque"><b>' + mq.length + ' action(s) de la procédure manquent</b> pour les niveaux atteints : ' + mq.slice(0, 4).map(function (p) { return esc((p.niveau === 'TOUS' ? "Prise d'astreinte" : p.niveau) + ' – ' + p.libelle); }).join(' ; ') + (mq.length > 4 ? '…' : '') + '</div>' : '')
+    + '<div class="outils"><button class="bt s p" id="btAjA">+ Ajouter un attendu</button><button class="bt s m" id="btProc">Mettre à jour les actions de la procédure</button>'
+    + '<span class="mini">Recrée un attendu par action de la procédure (' + E.proc.length + ' actions) pour chaque niveau atteint, à l\'heure de son passage. Les autres attendus sont conservés.</span></div>'
+    + '<div class="defile"><table class="t" id="tAtt"><thead><tr><th style="width:180px">Heure simulée</th><th style="width:170px">Type</th><th style="width:28%">Valeur contrôlée</th><th>Libellé (bilan)</th><th style="width:70px">Tolérance (h)</th><th style="width:170px"></th></tr></thead><tbody>'
+    + (E.att.length ? E.att.map(function (a, i) {
+      return '<tr><td>' + champQuand(i, a.h) + '</td><td><select data-i="' + i + '" data-f="test" data-r="1">' + Object.keys(TESTS).map(function (k) { return '<option value="' + k + '"' + (k === a.test ? ' selected' : '') + '>' + TESTS[k] + '</option>'; }).join('') + '</select></td>'
+        + '<td>' + champValeur(a, i) + '</td><td><textarea data-i="' + i + '" data-f="libelle" rows="1">' + esc(a.libelle) + '</textarea></td>'
+        + '<td class="num"><input type="text" data-i="' + i + '" data-f="tolerance_h" data-n="1" value="' + fr(a.tolerance_h, 2) + '"></td>' + boutonsLigne(i) + '</tr>';
+    }).join('') : ligneVide(6)) + '</tbody></table></div></div>';
+  var t = $('tAtt');
+  t.addEventListener('change', function (e) {
+    var f = e.target.getAttribute('data-f'), i = e.target.getAttribute('data-i'); if (f !== '_vpt' && f !== '_vst') return;
+    var tr = e.target.closest('tr'); E.att[+i].valeur = tr.querySelector('[data-f="_vpt"]').value + '|' + tr.querySelector('[data-f="_vst"]').value; modifie();
+  });
+  lierTableau('tAtt', function () { return E.att; }, function (re) {
+    if (!re) E.att.forEach(function (a) {   // valeur et libellé par défaut quand le type change
+      if ((a.test === 'action' || a.test === 'action_f') && !E.proc.some(function (p) { return p.libelle === a.valeur; }) && E.proc.length) a.valeur = E.proc[0].libelle;
+      if ((a.test === 'niveau' || a.test === 'niveau_a') && !NIV[a.valeur]) a.valeur = 'N1';
+      if (a.test === 'scenario' && REF.SCEN_Q.indexOf(+a.valeur) < 0) a.valeur = '141';
+      if (a.test === 'vigie' && String(a.valeur).indexOf('|') < 0) a.valeur = REF.POINTS[0][0] + '|en place';
+    });
+    vAttendus(); dessinerOnglets();
+  });
+  $('btAjA').onclick = function () { E.att.push({h: 0, test: 'manuel', valeur: '', libelle: 'Nouvel attendu', tolerance_h: 1}); modifie(); vAttendus(); dessinerOnglets(); };
+  $('btProc').onclick = function () {
+    var n = E.att.filter(function (a) { return a.test === 'action' || a.test === 'action_f'; }).length;
+    if (n && !confirm('Remplacer les ' + n + ' attendus d\'actions actuels par les actions de la procédure ?')) return;
+    E.att = attendusProcedure(E.att, E.proc); modifie(); vAttendus(); dessinerOnglets();
+  };
+}
+function tolerance(p) {
+  var d = String(p.delai || '').toLowerCase();
+  if (p.niveau === 'TOUS') return 0.5;
+  if (/imm[ée]diat|d[èe]s le d[ée]clenchement|15 min/.test(d)) return 0.5;
+  if (/30 min/.test(d)) return 0.75;
+  if (/continu|selon|^si /.test(d)) return 2;
+  return 1;
+}
+function heuresNiveaux(att) {
+  var t = {}, ep = att.filter(function (a) { return a.test === 'episode'; })[0];
+  att.filter(function (a) { return a.test === 'niveau'; }).forEach(function (a) { if (t[a.valeur] == null || a.h < t[a.valeur]) t[a.valeur] = a.h; });
+  var prem = Object.keys(t).map(function (k) { return t[k]; }).sort(function (a, b) { return a - b; })[0];
+  t.TOUS = ep ? ep.h : (prem != null ? Math.max(0, prem - 0.5) : null);
+  return t;
+}
+function attendusProcedure(att, proc) {
+  var garde = att.filter(function (a) { return a.test !== 'action' && a.test !== 'action_f'; }), t = heuresNiveaux(att);
+  proc.forEach(function (p) {
+    var base = t[p.niveau]; if (base == null) return;
+    garde.push({h: Math.round((base + 0.05 * (p.ordre - 1)) * 100) / 100, test: /^facultatif/i.test(p.libelle) ? 'action_f' : 'action', valeur: p.libelle,
+                libelle: (p.niveau === 'TOUS' ? "Prise d'astreinte" : p.niveau) + ' – ' + p.libelle, tolerance_h: tolerance(p)});
+  });
+  trier(garde); return garde;
+}
+function manquesProcedure() {
+  var t = heuresNiveaux(E.att), faits = {};
+  E.att.forEach(function (a) { if (a.test === 'action' || a.test === 'action_f') faits[a.valeur] = 1; });
+  return E.proc.filter(function (p) { return t[p.niveau] != null && !faits[p.libelle]; });
+}
+
+/* ---------- Débits */
+function vDebits() {
+  var st = REF.STATIONS;
+  $('contenu').innerHTML = '<div class="carte"><h2>Débits des stations, heure par heure</h2><p class="aide">Valeurs en m³/s ; entre deux heures, l\'exercice interpole. Le graphique se met à jour à chaque modification.</p>'
+    + '<div id="graphe"></div>'
+    + '<div class="outils"><div><label>Station</label><select id="cSt">' + st.map(function (s) { return '<option value="' + s[0] + '">' + esc(s[1]) + '</option>'; }).join('') + '<option value="*">Toutes les stations</option></select></div>'
+    + '<div><label>De</label>' + champQuandSimple('cDe', 0) + '</div><div><label>À</label>' + champQuandSimple('cA', duree()) + '</div>'
+    + '<div><label>Multiplier par</label><input type="text" id="cK" value="1,2" style="width:70px"></div><button class="bt s m" id="btCoef">Appliquer</button>'
+    + '<div><label>Décaler la crue de (h)</label><input type="text" id="cDec" value="1" style="width:70px"></div><button class="bt s" id="btDec">Décaler</button></div>'
+    + '<div class="defile"><table class="t" id="tQ"><thead><tr><th style="width:130px">Heure simulée</th>' + st.map(function (s) { var se = REF.SEUILS[s[0]];
+      return '<th class="num" style="text-align:right" title="' + (se ? 'Seuils : ' + (se[0] != null ? 'S1 ' + fr(se[0], 1) + ' · ' : '') + 'S2 ' + fr(se[1], 1) + ' m³/s' : '') + '"><span style="color:' + s[2] + '">●</span> ' + esc(s[1]) + '</th>'; }).join('') + '</tr></thead><tbody>'
+    + E.pas.map(function (p, i) {
+      return '<tr><td><b>' + horloge(p.h) + '</b> <span class="mini">H+' + p.h + '</span></td>' + st.map(function (s) {
+        var v = (p.q[s[0]] || 0) / 1000, se = REF.SEUILS[s[0]], c = se && se[1] != null && v >= se[1] ? 'background:#fdecea' : se && se[0] != null && v >= se[0] ? 'background:#fff4e0' : '';
+        return '<td class="num" style="' + c + '"><input type="text" data-i="' + i + '" data-c="' + s[0] + '" value="' + fr(v, s[3]) + '"></td>'; }).join('') + '</tr>';
+    }).join('') + '</tbody></table></div><p class="aide">Fond orange : seuil 1 Hydras dépassé ; rouge : seuil 2.</p></div>';
+  dessinerGraphe();
+  $('tQ').addEventListener('change', function (e) {
+    var t = e.target, i = t.getAttribute('data-i'), c = t.getAttribute('data-c'); if (i == null) return;
+    var v = nb(t.value); if (v == null || v < 0) { message('Débit invalide.', 'err'); return; }
+    E.pas[+i].q[c] = Math.round(v * 1000); modifie(); message(''); dessinerGraphe();
+    var se = REF.SEUILS[c], td = t.parentNode; td.style.background = se && se[1] != null && v >= se[1] ? '#fdecea' : se && se[0] != null && v >= se[0] ? '#fff4e0' : '';
+  });
+  $('btCoef').onclick = function () {
+    var k = nb($('cK').value), a = lireQuandSimple('cDe'), b = lireQuandSimple('cA'), s = $('cSt').value; if (k == null || a == null || b == null) return message('Valeurs invalides.', 'err');
+    E.pas.forEach(function (p) { if (p.h >= a && p.h <= b) Object.keys(p.q).forEach(function (c) { if (s === '*' || c === s) p.q[c] = Math.round(p.q[c] * k); }); });
+    modifie(); vDebits();
+  };
+  $('btDec').onclick = function () {
+    var d = Math.round(nb($('cDec').value) || 0); if (!d) return;
+    var q = E.pas.map(function (p) { return JSON.parse(JSON.stringify(p.q)); });
+    E.pas.forEach(function (p, i) { var j = Math.max(0, Math.min(q.length - 1, i - d)); p.q = JSON.parse(JSON.stringify(q[j])); });
+    modifie(); vDebits(); message('Crue décalée de ' + d + ' h. Pensez à décaler aussi les événements et les attendus si besoin.', 'info');
+  };
+}
+function champQuandSimple(id, h) {
+  var x = versJH(h);
+  return '<div class="quand"><select id="' + id + 'J">' + jours().map(function (d, k) { return '<option value="' + k + '"' + (k === x.j ? ' selected' : '') + '>' + esc(libJour(d)) + '</option>'; }).join('') + '</select><input type="text" id="' + id + 'H" value="' + x.hm + '"></div>';
+}
+function lireQuandSimple(id) { return depuisJH(+$(id + 'J').value, $(id + 'H').value); }
+function dessinerGraphe() {
+  var W = 1000, H = 250, x0 = 46, x1 = W - 12, y0 = 220, y1 = 50, D = duree(), qmax = 10, pmax = 1;
+  E.pas.forEach(function (p) { REF.STATIONS.forEach(function (s) { qmax = Math.max(qmax, (p.q[s[0]] || 0) / 1000); }); pmax = Math.max(pmax, Number(p.pluie_1h) || 0); });
+  qmax = Math.ceil(qmax * 1.1 / 10) * 10;
+  var X = function (t) { return x0 + t * (x1 - x0) / D; }, Y = function (q) { return y0 - q * (y0 - y1) / qmax; };
+  var g = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Hydrogrammes du scénario">';
+  for (var k = 0; k <= 4; k++) { var q = qmax * k / 4; g += '<line x1="' + x0 + '" x2="' + x1 + '" y1="' + Y(q) + '" y2="' + Y(q) + '" stroke="#eef3f8"/><text x="' + (x0 - 5) + '" y="' + (Y(q) + 4) + '" font-size="11" text-anchor="end" fill="#3f5f86">' + Math.round(q) + '</text>'; }
+  E.pas.forEach(function (p) { if (p.pluie_1h > 0) g += '<rect x="' + (X(p.h) - 3) + '" y="8" width="6" height="' + (p.pluie_1h / pmax * 34) + '" fill="#9cc0e6"><title>' + horloge(p.h) + ' : ' + fr(p.pluie_1h, 1) + ' mm</title></rect>'; });
+  var pas = D > 40 ? 6 : 3;
+  for (var t = 0; t <= D; t += pas) { var j = versJH(t); g += '<text x="' + X(t) + '" y="' + (y0 + 15) + '" font-size="11" text-anchor="middle" fill="#3f5f86">' + j.hm + '</text>' + (j.hm === '00:00' || t === 0 ? '<text x="' + X(t) + '" y="' + (y0 + 28) + '" font-size="10" text-anchor="middle" fill="#0a6fcf" font-weight="800">' + esc(libJour(jours()[j.j])) + '</text>' : ''); }
+  REF.STATIONS.slice().reverse().forEach(function (s) { g += '<polyline fill="none" stroke="' + s[2] + '" stroke-width="' + (s[0] === 'V301502002' ? 3 : 1.6) + '" points="' + E.pas.map(function (p) { return X(p.h) + ',' + Y((p.q[s[0]] || 0) / 1000); }).join(' ') + '"/>'; });
+  E.ev.forEach(function (e) { var c = (TYPES_EV[e.type] || ['', '#9aa9ba'])[1]; g += '<circle cx="' + X(e.h) + '" cy="' + (y0 - 3) + '" r="3" fill="' + c + '"><title>' + horloge(e.h) + ' · ' + esc(e.titre) + '</title></circle>'; });
+  g += '</svg><div class="legende">' + REF.STATIONS.map(function (s) { return '<span><i style="background:' + s[2] + '"></i>' + esc(s[1]) + '</span>'; }).join('') + '<span><i style="background:#9cc0e6;height:8px"></i>Pluie moyenne</span></div>';
+  $('graphe').innerHTML = g;
+}
+
+/* ---------- Pluie */
+function vPluie() {
+  var cle = E.vuePluie === 'prev' ? 'prev_sbv' : 'pluie_sbv';
+  var tot = {}; REF.SBV.forEach(function (s) { tot[s[0]] = 0; }); E.pas.forEach(function (p) { REF.SBV.forEach(function (s) { tot[s[0]] += Number(p[cle][s[0]]) || 0; }); });
+  $('contenu').innerHTML = '<div class="carte"><h2>Pluie par sous-bassin versant</h2>'
+    + '<div class="outils"><div><label>Afficher</label><select id="pVue"><option value="pluie"' + (cle === 'pluie_sbv' ? ' selected' : '') + '>Pluie tombée dans l\'heure (mm)</option><option value="prev"' + (cle === 'prev_sbv' ? ' selected' : '') + '>Pluie annoncée pour les 6 h suivantes (mm)</option></select></div>'
+    + '<div><label>Sous-bassin</label><select id="pSbv"><option value="*">Tous</option>' + REF.SBV.map(function (s) { return '<option value="' + s[0] + '">' + esc(s[1]) + '</option>'; }).join('') + '</select></div>'
+    + '<div><label>De</label>' + champQuandSimple('pDe', 0) + '</div><div><label>À</label>' + champQuandSimple('pA', duree()) + '</div>'
+    + '<div><label>Multiplier par</label><input type="text" id="pK" value="1,5" style="width:70px"></div><button class="bt s m" id="btPCoef">Appliquer</button></div>'
+    + '<label style="display:flex;gap:8px;align-items:center;margin:0 0 8px"><input type="checkbox" id="pAuto"' + (E.prevAuto ? ' checked' : '') + ' style="width:auto;min-height:0;margin:0"> À l\'enregistrement, recalculer la pluie annoncée à partir de la pluie tombée (prévision exacte, × <input type="text" id="pF" value="1" style="width:46px;min-height:24px;display:inline-block;margin:0">)</label>'
+    + '<p class="aide">' + (cle === 'pluie_sbv' ? 'Pluie réellement tombée sur chaque sous-bassin pendant l\'heure qui précède. Elle alimente les pluviomètres simulés dans QGIS.' : 'Ce que la prévision annonce, à chaque heure, pour les 6 heures suivantes : c\'est ce que le joueur voit dans « Pluie prévue par sous-bassin ». Une valeur différente de la pluie tombée simule une prévision qui se trompe.') + '</p>'
+    + '<div class="defile"><table class="t" id="tP"><thead><tr><th style="width:110px">Heure</th>' + REF.SBV.map(function (s) { return '<th class="num" style="text-align:right;font-size:10px">' + esc(s[1]) + '</th>'; }).join('') + '</tr></thead><tbody>'
+    + '<tr><td class="mini"><b>Cumul</b></td>' + REF.SBV.map(function (s) { return '<td class="num mini" style="text-align:right"><b>' + fr(tot[s[0]], 0) + '</b></td>'; }).join('') + '</tr>'
+    + E.pas.map(function (p, i) {
+      return '<tr><td><b>' + horloge(p.h) + '</b> <span class="mini">H+' + p.h + '</span></td>' + REF.SBV.map(function (s) { var v = Number(p[cle][s[0]]) || 0;
+        return '<td class="num" style="' + (v > 0 ? 'background:rgba(10,111,207,' + Math.min(0.5, v / (cle === 'prev_sbv' ? 60 : 15)).toFixed(2) + ')' : '') + '"><input type="text" style="width:48px" data-i="' + i + '" data-c="' + s[0] + '" value="' + fr(v, 1) + '"></td>'; }).join('') + '</tr>';
+    }).join('') + '</tbody></table></div></div>';
+  $('pVue').onchange = function () { E.vuePluie = this.value; vPluie(); };
+  $('pAuto').onchange = function () { E.prevAuto = this.checked; };
+  $('pF').value = fr(E.prevF || 1, 2); $('pF').onchange = function () { E.prevF = nb(this.value) || 1; };
+  $('tP').addEventListener('change', function (e) {
+    var t = e.target, i = t.getAttribute('data-i'), c = t.getAttribute('data-c'); if (i == null) return;
+    var v = nb(t.value); if (v == null || v < 0) return message('Valeur de pluie invalide.', 'err');
+    E.pas[+i][cle][c] = Math.round(v * 10) / 10; if (cle === 'pluie_sbv') { E.prevAuto = true; $('pAuto').checked = true; } recalculerMoyenne(); modifie(); message('');
+  });
+  $('btPCoef').onclick = function () {
+    var k = nb($('pK').value), a = lireQuandSimple('pDe'), b = lireQuandSimple('pA'), s = $('pSbv').value; if (k == null || a == null || b == null) return message('Valeurs invalides.', 'err');
+    E.pas.forEach(function (p) { if (p.h >= a && p.h <= b) REF.SBV.forEach(function (x) { if (s === '*' || x[0] === s) p[cle][x[0]] = Math.round((Number(p[cle][x[0]]) || 0) * k * 10) / 10; }); });
+    if (cle === 'pluie_sbv') E.prevAuto = true; recalculerMoyenne(); modifie(); vPluie();
+  };
+}
+function recalculerMoyenne() {
+  var surf = 0; REF.SBV.forEach(function (s) { surf += s[2]; });
+  E.pas.forEach(function (p) { var t = 0; REF.SBV.forEach(function (s) { t += (Number(p.pluie_sbv[s[0]]) || 0) * s[2]; }); p.pluie_1h = Math.round(t / surf * 10) / 10; });
+}
+function recalculerPrevision(f) {
+  E.pas.forEach(function (p, i) { REF.SBV.forEach(function (s) { var t = 0; for (var k = i + 1; k <= i + 6 && k < E.pas.length; k++) t += Number(E.pas[k].pluie_sbv[s[0]]) || 0; p.prev_sbv[s[0]] = Math.round(t * f * 10) / 10; }); });
+}
+
+/* ---------- Événements */
+function optPoints(v, echelles) { return REF.POINTS.filter(function (p) { return !echelles || p[2] != null || p[3] != null; }).map(function (p) { return '<option value="' + p[0] + '"' + (p[0] === v ? ' selected' : '') + '>' + esc(p[1]) + '</option>'; }).join(''); }
+function opt(liste, v) { return liste.map(function (x) { var k = Array.isArray(x) ? x[0] : x, l = Array.isArray(x) ? x[1] : x; return '<option value="' + esc(k) + '"' + (k === v ? ' selected' : '') + '>' + esc(l) + '</option>'; }).join(''); }
+function details(e, i) {
+  var d = e.donnees || {}, f = function (lib, html, large) { return '<div' + (large ? ' class="large"' : '') + '><span>' + lib + '</span>' + html + '</div>'; };
+  var inp = function (k, v, n) { return '<input type="text" data-i="' + i + '" data-f="donnees.' + k + '"' + (n ? ' data-n="1"' : '') + ' value="' + esc(n ? fr(v, 2) : v) + '">'; };
+  var sel = function (k, html) { return '<select data-i="' + i + '" data-f="donnees.' + k + '">' + html + '</select>'; };
+  if (e.type === 'releve_vigie') return '<div class="det">' + f('Échelle', sel('point', optPoints(d.point, true))) + f('Hauteur lue (m)', inp('hauteur_m', d.hauteur_m, true))
+    + f('Tendance', sel('tendance', opt(['montée', 'stable', 'baisse'], d.tendance))) + f('Commentaire', inp('commentaire', d.commentaire || '')) + '</div>';
+  if (e.type === 'presence_vigie') return '<div class="det">' + f('Point', sel('point', optPoints(d.point))) + f('Réponse', sel('statut', opt(['en place', 'indisponible'], d.statut)))
+    + f('Ce que dit la Vigie (facultatif)', inp('texte', d.texte || ''), true) + '</div>';
+  if (e.type === 'clapet') return '<div class="det">' + f('Clapet', sel('code', opt(REF.CLAPETS, d.code))) + f('État', sel('etat', opt(['dysfonctionnement', 'suspect', 'OK'], d.etat))) + f('Constat', inp('texte', d.texte || ''), true) + '</div>';
+  if (e.type === 'batardeau') return '<div class="det">' + f('Batardeau', sel('code', opt(REF.BATARDEAUX, d.code))) + f('État', sel('etat', opt(['posé', 'présence vérifiée', 'non posé', 'problème'], d.etat))) + f('Message', inp('texte', d.texte || ''), true) + '</div>';
+  if (e.type === 'signalement') return '<div class="det">' + f('Lieu (point le plus proche)', sel('point', optPoints(d.point))) + f('Type', sel('type', opt(REF.DESORDRES.indexOf(d.type) < 0 && d.type ? REF.DESORDRES.concat([d.type]) : REF.DESORDRES, d.type)))
+    + f('Gravité', sel('gravite', opt(['gêne', 'risque', 'danger'], d.gravite))) + f('Description', inp('description', d.description || ''), true) + '</div>';
+  if (e.type === 'message') return '<div class="det">' + f('De', inp('de', d.de || '')) + f('', '') + f('Texte affiché au joueur', '<textarea data-i="' + i + '" data-f="donnees.texte" rows="2">' + esc(d.texte || '') + '</textarea>', true) + '</div>';
+  return '<span class="mini">Non transmise au joueur : rappel pour l\'animateur.</span>';
+}
+function vEvenements() {
+  trier(E.ev);
+  var filtre = E.filtreEv || '';
+  $('contenu').innerHTML = '<div class="carte"><h2>Événements injectés pendant l\'exercice</h2><p class="aide">Chaque événement arrive chez le joueur à son heure simulée. Modifiez l\'heure (ou ±15 min) pour le déplacer : la liste se réordonne seule.</p>'
+    + '<div class="outils"><div><label>Ajouter</label><select id="eType">' + Object.keys(TYPES_EV).map(function (k) { return '<option value="' + k + '">' + TYPES_EV[k][0] + '</option>'; }).join('') + '</select></div>'
+    + '<div><label>à</label>' + champQuandSimple('eQ', 0) + '</div><button class="bt s p" id="btAjE">+ Ajouter</button>'
+    + '<div><label>Filtrer</label><select id="eFiltre"><option value="">Tous les types</option>' + Object.keys(TYPES_EV).map(function (k) { return '<option value="' + k + '"' + (k === filtre ? ' selected' : '') + '>' + TYPES_EV[k][0] + '</option>'; }).join('') + '</select></div>'
+    + '<div><label>Décaler tous les événements de (h)</label><input type="text" id="eDec" value="0,5" style="width:70px"></div><button class="bt s" id="btDecE">Décaler</button></div>'
+    + '<div class="defile"><table class="t" id="tEv"><thead><tr><th style="width:180px">Heure simulée</th><th style="width:150px">Type</th><th style="width:17%">Titre (vu par l\'animateur)</th><th style="min-width:330px">Contenu</th><th style="width:17%">Consigne pour l\'animateur</th><th style="width:170px"></th></tr></thead><tbody>'
+    + (E.ev.length ? E.ev.map(function (e, i) {
+      if (filtre && e.type !== filtre) return '';
+      var t = TYPES_EV[e.type] || [e.type, '#9aa9ba'];
+      return '<tr><td>' + champQuand(i, e.h) + '</td><td><span class="tag" style="background:' + t[1] + '">' + esc(t[0]) + '</span></td>'
+        + '<td><textarea data-i="' + i + '" data-f="titre" rows="2">' + esc(e.titre) + '</textarea></td><td>' + details(e, i) + '</td>'
+        + '<td><textarea data-i="' + i + '" data-f="consigne" rows="2">' + esc(e.consigne || '') + '</textarea></td>' + boutonsLigne(i) + '</tr>';
+    }).join('') : ligneVide(6)) + '</tbody></table></div></div>';
+  lierTableau('tEv', function () { return E.ev; }, function (re) { if (re) { vEvenements(); dessinerOnglets(); } });
+  $('eFiltre').onchange = function () { E.filtreEv = this.value; vEvenements(); };
+  $('btAjE').onclick = function () {
+    var h = lireQuandSimple('eQ'); if (h == null) return message('Heure invalide (HH:MM).', 'err');
+    var ty = $('eType').value, d = {releve_vigie: {point: '696003', hauteur_m: 1, tendance: 'montée', commentaire: ''}, presence_vigie: {point: '696003', statut: 'en place'},
+      clapet: {code: 'S8-Rj15', etat: 'dysfonctionnement', texte: ''}, batardeau: {code: 'BAT-S7', etat: 'posé', texte: ''}, signalement: {point: '696001', type: 'Embâcle sur pont', gravite: 'risque', description: ''},
+      message: {de: 'Mairie (fictif)', texte: ''}, consigne: {}}[ty];
+    E.ev.push({h: h, type: ty, titre: TYPES_EV[ty][0], donnees: d, consigne: null}); modifie(); vEvenements(); dessinerOnglets();
+  };
+  $('btDecE').onclick = function () {
+    var d = nb($('eDec').value); if (!d) return;
+    E.ev.forEach(function (e) { e.h = Math.max(0, Math.min(duree(), Math.round((e.h + d) * 100) / 100)); }); modifie(); vEvenements();
+  };
+}
+function titreAuto(e) {
+  var d = e.donnees || {};
+  if (e.type === 'releve_vigie') return 'Vigie ' + nomPoint(d.point) + ' : ' + fr(d.hauteur_m, 2) + ' m' + (d.tendance === 'montée' ? ', en montée' : d.tendance === 'baisse' ? ', en baisse' : '');
+  if (e.type === 'presence_vigie') return 'Appel de la Vigie ' + nomPoint(d.point) + ' : ' + d.statut;
+  if (e.type === 'clapet') return 'Clapet ' + d.code + ' : ' + d.etat;
+  if (e.type === 'batardeau') return 'Batardeau ' + d.code + ' : ' + d.etat;
+  if (e.type === 'signalement') return d.type + ' (' + d.gravite + ')';
+  if (e.type === 'message') return 'Appel : ' + (d.de || '');
+  return e.titre;
+}
+
+/* ---------- enregistrer, dupliquer, supprimer */
+function controler() {
+  if (!String(E.sc.nom || '').trim()) return 'Le scénario doit avoir un nom.';
+  var D = duree();
+  if (E.ev.some(function (e) { return e.h < 0 || e.h > D; }) || E.att.some(function (a) { return a.h < 0 || a.h > D; })) return 'Un événement ou un attendu est hors de la durée du scénario.';
+  return null;
+}
+async function enregistrer() {
+  var err = controler(); if (err) return message(err, 'err');
+  $('btEnreg').disabled = true; message('Enregistrement…');
+  try {
+    if (E.prevAuto) recalculerPrevision(E.prevF || 1);
+    recalculerMoyenne(); trier(E.ev); trier(E.att); trier(E.der);
+    E.ev.forEach(function (e) { if (!e.titre || e.titre === (TYPES_EV[e.type] || [''])[0]) e.titre = titreAuto(e); e.canal = CANAL[e.type]; });
+    var id = E.sc.id;
+    var r = await sb.from('scenarios').update({nom: E.sc.nom.trim(), description: E.sc.description, debut_simule: E.sc.debut_simule, duree_h: duree(), source: E.sc.source, actif: E.sc.actif !== false,
+                                                deroule: E.der, modifie_le: new Date().toISOString()}).eq('id', id);
+    if (r.error) throw new Error(/duplicate|unique/i.test(r.error.message) ? 'Un autre scénario porte déjà ce nom.' : r.error.message);
+    // pas horaires : remplacés en bloc
+    r = await sb.from('scenario_pas').delete().eq('scenario_id', id); if (r.error) throw r.error;
+    r = await sb.from('scenario_pas').insert(E.pas.map(function (p) { return {scenario_id: id, h: p.h, q: p.q, pluie_1h: p.pluie_1h, pluie_sbv: p.pluie_sbv, prev_sbv: p.prev_sbv}; })); if (r.error) throw r.error;
+    // événements et attendus : mis à jour ligne à ligne (les sessions existantes gardent leurs références)
+    await synchroniser('scenario_evenements', E.ev, function (e) { return {scenario_id: id, h: e.h, titre: e.titre, canal: e.canal, type: e.type, donnees: e.donnees || {}, consigne: e.consigne || null}; });
+    await synchroniser('scenario_attendus', E.att, function (a) { return {scenario_id: id, h: a.h, niveau: a.niveau || null, libelle: a.libelle, test: a.test, valeur: a.valeur == null ? '' : String(a.valeur), tolerance_h: a.tolerance_h || 1}; });
+    await charger(id); await chargerListe(id);
+    message('Scénario enregistré. Les sessions déjà créées avec ce scénario utilisent désormais cette version.', 'ok');
+  } catch (e) { message('Enregistrement impossible : ' + erreur(e), 'err'); }
+  $('btEnreg').disabled = false;
+}
+async function synchroniser(table, liste, ligne) {
+  var avant = await sb.from(table).select('id').eq('scenario_id', E.sc.id); if (avant.error) throw avant.error;
+  var gardes = {}; liste.forEach(function (x) { if (x.id) gardes[x.id] = 1; });
+  var aSuppr = avant.data.filter(function (x) { return !gardes[x.id]; }).map(function (x) { return x.id; });
+  if (aSuppr.length) { var r = await sb.from(table).delete().in('id', aSuppr); if (r.error) throw r.error; }
+  for (var k = 0; k < liste.length; k++) { if (!liste[k].id) continue; var u = await sb.from(table).update(ligne(liste[k])).eq('id', liste[k].id); if (u.error) throw u.error; }
+  var nouv = liste.filter(function (x) { return !x.id; }).map(ligne);
+  if (nouv.length) { var i = await sb.from(table).insert(nouv); if (i.error) throw i.error; }
+}
+$('btEnreg').onclick = enregistrer;
+$('btDupl').onclick = async function () {
+  var nom = prompt('Nom de la copie :', E.sc.nom + ' (copie)'); if (!nom) return;
+  message('Copie…');
+  var s = await sb.from('scenarios').insert({nom: nom.trim(), description: E.sc.description, debut_simule: E.sc.debut_simule, duree_h: duree(), source: E.sc.source, deroule: E.der, actif: true}).select('id').single();
+  if (s.error) return message(/duplicate|unique/i.test(s.error.message) ? 'Un scénario porte déjà ce nom.' : s.error.message, 'err');
+  var id = s.data.id;
+  var r = await Promise.all([sb.from('scenario_pas').insert(E.pas.map(function (p) { return {scenario_id: id, h: p.h, q: p.q, pluie_1h: p.pluie_1h, pluie_sbv: p.pluie_sbv, prev_sbv: p.prev_sbv}; })),
+    E.ev.length ? sb.from('scenario_evenements').insert(E.ev.map(function (e) { return {scenario_id: id, h: e.h, titre: e.titre, canal: e.canal || CANAL[e.type], type: e.type, donnees: e.donnees || {}, consigne: e.consigne || null}; })) : {},
+    E.att.length ? sb.from('scenario_attendus').insert(E.att.map(function (a) { return {scenario_id: id, h: a.h, libelle: a.libelle, test: a.test, valeur: a.valeur == null ? '' : String(a.valeur), tolerance_h: a.tolerance_h || 1}; })) : {}]);
+  var e = r.filter(function (x) { return x && x.error; })[0];
+  if (e) { await sb.from('scenarios').delete().eq('id', id); return message('Copie annulée : ' + e.error.message, 'err'); }
+  E.modifie = false; await chargerListe(id); message('Copie créée : vous modifiez maintenant « ' + nom + ' ».', 'ok');
+};
+$('btSuppr').onclick = async function () {
+  var txt = 'Supprimer définitivement le scénario « ' + E.sc.nom + ' » ?' + (E.sessions ? '\n\n' + E.sessions + ' session(s) d\'exercice utilisent ce scénario : elles seront supprimées aussi (avec leurs résultats).' : '');
+  if (!confirm(txt)) return;
+  var r = await sb.from('sessions').delete().eq('scenario_id', E.sc.id); if (r.error) return message(erreur(r.error), 'err');
+  r = await sb.from('scenarios').delete().eq('id', E.sc.id); if (r.error) return message(erreur(r.error), 'err');
+  E.modifie = false; await chargerListe(); message('Scénario supprimé.', 'ok');
+};
+window.addEventListener('beforeunload', function (e) { if (E.modifie) { e.preventDefault(); e.returnValue = ''; } });
+
+demarrage();
+</script>
+</body>
+</html>

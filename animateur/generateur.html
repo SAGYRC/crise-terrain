@@ -177,7 +177,8 @@ body{background:#f5f9fd}
       <label class="coche"><input type="checkbox" id="gBat"> Pose du batardeau d'Oullins annoncée</label>
       <label class="coche"><input type="checkbox" id="gCons"> Consignes pour l'animateur aux moments clés</label>
     </div>
-    <div class="pied-form"><button class="bt m" id="gEnreg">Enregistrer le scénario</button></div>
+    <div class="pied-form"><button class="bt m" id="gEnreg">Enregistrer le scénario</button><a class="bt" href="editeur.html" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none">Modifier un scénario existant</a></div>
+    <p class="aide" style="margin:0 2px">Après l'enregistrement, l'éditeur permet de tout ajuster à la main : déroulé, objectifs attendus, débits, pluie par sous-bassin et événements.</p>
     <div id="gMsg"></div>
   </div>
 
@@ -573,6 +574,32 @@ var PRESETS = {
   vigilance: {pics: [{h: 10, q: 35, foyer: 'ouest'}], pluie: 'soutenue', sols: 'sec', var: 'moyenne'}
 };
 var ETAT = {pics: [], res: null, dureeManuelle: false, preset: null, timer: null};
+var PROC = [];   // procédure d'astreinte de l'outil de crise (table procedure_ref, tenue à jour par le poste joueur)
+function tolerance(p) {
+  var d = String(p.delai || '').toLowerCase();
+  if (p.niveau === 'TOUS') return 0.5;
+  if (/imm[ée]diat|d[èe]s le d[ée]clenchement|15 min/.test(d)) return 0.5;
+  if (/30 min/.test(d)) return 0.75;
+  if (/continu|selon|^si /.test(d)) return 2;
+  return 1;
+}
+function heuresNiveaux(att) {
+  var t = {}, ep = att.filter(function (a) { return a.test === 'episode'; })[0];
+  att.filter(function (a) { return a.test === 'niveau'; }).forEach(function (a) { if (t[a.valeur] == null || a.h < t[a.valeur]) t[a.valeur] = a.h; });
+  var prem = Object.keys(t).map(function (k) { return t[k]; }).sort(function (a, b) { return a - b; })[0];
+  t.TOUS = ep ? ep.h : (prem != null ? Math.max(0, prem - 0.5) : null);
+  return t;
+}
+function attendusProcedure(att, proc) {   // un attendu par action de la procédure, pour chaque niveau atteint, à l'heure de son passage
+  var garde = att.filter(function (a) { return a.test !== 'action' && a.test !== 'action_f'; }), t = heuresNiveaux(att);
+  proc.forEach(function (p) {
+    var base = t[p.niveau]; if (base == null) return;
+    garde.push({h: Math.round((base + 0.05 * (p.ordre - 1)) * 100) / 100, test: /^facultatif/i.test(p.libelle) ? 'action_f' : 'action', valeur: p.libelle,
+                libelle: (p.niveau === 'TOUS' ? "Prise d'astreinte" : p.niveau) + ' – ' + p.libelle, tolerance_h: tolerance(p)});
+  });
+  garde.sort(function (a, b) { return a.h - b.h; }); return garde;
+}
+
 
 function $(id) { return document.getElementById(id); }
 function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]; }); }
@@ -594,6 +621,7 @@ async function demarrage() {
   if (!r.data) { $('ecConnexion').classList.remove('cache'); return message('msgConnexion', "Ce compte n'est pas déclaré comme animateur.", 'err'); }
   $('qui').textContent = s.data.session.user.email;
   $('ecConnexion').classList.add('cache'); $('ecGen').classList.remove('cache');
+  var pr = await sb.from('procedure_ref').select('*').order('id'); PROC = pr.data || [];
   init();
 }
 $('btConnexion').onclick = async function () {
@@ -681,7 +709,7 @@ function recalculer() {
   var o = lireOptions(), err = controler(o);
   if (err) { message('gMsg', err, 'err'); $('gEnreg').disabled = true; return; }
   message('gMsg', '');
-  try { ETAT.res = genererScenario(o); ETAT.res.o = o; } catch (e) { message('gMsg', 'Erreur de calcul : ' + e.message, 'err'); $('gEnreg').disabled = true; return; }
+  try { ETAT.res = genererScenario(o); ETAT.res.o = o; if (PROC.length) ETAT.res.att = attendusProcedure(ETAT.res.att, PROC); } catch (e) { message('gMsg', 'Erreur de calcul : ' + e.message, 'err'); $('gEnreg').disabled = true; return; }
   if (!$('gNom').value || /^Crue générée/.test($('gNom').value)) $('gNom').value = nomAuto(o);
   $('gEnreg').disabled = false;
   apercu();
@@ -726,7 +754,9 @@ function graphe(r) {
   var g = '<svg viewBox="0 0 ' + W + ' ' + Hh + '" width="100%" role="img" aria-label="Hydrogrammes du scénario">';
   // grille
   for (var q = 0; q <= qmax; q += 20) g += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + Y(q) + '" y2="' + Y(q) + '" stroke="#eef3f8"/><text x="' + (ml - 6) + '" y="' + (Y(q) + 4) + '" font-size="11" text-anchor="end" fill="#5c6f85">' + q + '</text>';
-  for (var t = 0; t <= D; t += D > 40 ? 6 : 3) g += '<text x="' + X(t) + '" y="' + (Hh - mb + 15) + '" font-size="11" text-anchor="middle" fill="#5c6f85">H+' + t + '</text>';
+  for (var t = 0; t <= D; t += D > 40 ? 6 : 3) { var ht_ = horloge(t), d0_ = new Date($('gDebut').value), dj_ = new Date(d0_.getTime() + t * 3600e3);
+    g += '<text x="' + X(t) + '" y="' + (Hh - mb + 15) + '" font-size="11" text-anchor="middle" fill="' + (ht_ === '00:00' || t === 0 ? '#0a6fcf' : '#5c6f85') + '" font-weight="' + (ht_ === '00:00' || t === 0 ? 800 : 400) + '">'
+      + (ht_ === '00:00' ? dj_.toLocaleDateString('fr-FR', {weekday: 'short', day: 'numeric'}) : (t === 0 ? dj_.toLocaleDateString('fr-FR', {weekday: 'short', day: 'numeric'}) + ' ' + ht_ : ht_)) + '</text>'; }
   g += '<text x="' + (ml - 34) + '" y="' + (mt - 8) + '" font-size="11" fill="#5c6f85">m³/s</text>';
   // pluie (barres inversées en haut)
   var bw = (W - ml - mr) / D * 0.8;
@@ -774,6 +804,7 @@ function deroule(r) {
   R.picsObtenus.forEach(function (p, i) { P(p.t, 'Pic de crue' + (R.picsObtenus.length > 1 ? ' n° ' + (i + 1) : ''), fr(p.q, 0) + ' m³/s à Francheville.'); });
   P(R.tFin, 'Fin de crise', 'Débits sous les seuils : retour à la normale à valider.');
   ph.sort(function (a, b) { return a.t - b.t; });
+  r.derouleData = ph.map(function (p) { return {h: Math.round(p.t * 100) / 100, titre: p.txt, detail: p.det}; });
   return ph.map(function (p) { return '<div class="phase"><b>' + hh(p.t) + '<small>' + horloge(p.t) + '</small></b><p><b style="width:auto;display:inline">' + esc(p.txt) + '</b><small>' + esc(p.det) + '</small></p></div>'; }).join('');
 }
 function attendus(r) {
@@ -821,7 +852,7 @@ $('gEnreg').onclick = async function () {
     + ' ; pluie ' + GEN.PLUIE[o.typePluie].nom.toLowerCase() + ', ' + GEN.HUMIDITE[o.humidite].nom.toLowerCase() + ', prévision ' + GEN.PREVISION[o.prevision].nom.toLowerCase()
     + (R.creux.length ? ' ; décrue apparente à H+' + Math.round(R.creux[0].t) : '') + (R.tSurvAval != null ? ' ; surverse des digues S3–S8' : '') + (R.tSurvNord != null ? ' ; surverse des digues S1/S2' : '')
     + ' ; ' + r.evts.length + ' événements, ' + r.att.length + ' attendus.';
-  var s = await sb.from('scenarios').insert({nom: nom, description: desc, debut_simule: debut.toISOString(), duree_h: o.duree, source: 'Généré par l\'animateur (fictif)'}).select('id').single();
+  var s = await sb.from('scenarios').insert({nom: nom, description: desc, debut_simule: debut.toISOString(), duree_h: o.duree, source: 'Généré par l\'animateur (fictif)', deroule: r.derouleData || [], modifie_le: new Date().toISOString()}).select('id').single();
   if (s.error) { $('gEnreg').disabled = false; return message('gMsg', /duplicate|unique/i.test(s.error.message) ? 'Un scénario porte déjà ce nom.' : s.error.message, 'err'); }
   var id = s.data.id;
   var canal = {presence_vigie: 'Appel de Vigie (à saisir par le joueur)', message: 'Appel / message à lire', releve_vigie: 'Relevé Vigie (injecté dans QGIS)', clapet: 'État d\'ouvrage (injecté)', batardeau: 'État d\'ouvrage (injecté)', signalement: 'Signalement terrain (injecté)', consigne: 'Consigne animateur (non transmise)'};
@@ -831,7 +862,7 @@ $('gEnreg').onclick = async function () {
     sb.from('scenario_attendus').insert(r.att.map(function (a) { return {scenario_id: id, h: a.h, libelle: a.libelle, test: a.test, valeur: a.valeur, tolerance_h: a.tolerance_h}; }))]);
   var e = res.filter(function (x) { return x.error; })[0];
   if (e) { await sb.from('scenarios').delete().eq('id', id); $('gEnreg').disabled = false; return message('gMsg', 'Enregistrement annulé : ' + e.error.message, 'err'); }
-  $('gMsg').innerHTML = '<div class="msg ok">Scénario « ' + esc(nom) + ' » enregistré. <a href="animateur.html?scenario=' + id + '">Créer une session avec ce scénario →</a></div>';
+  $('gMsg').innerHTML = '<div class="msg ok">Scénario « ' + esc(nom) + ' » enregistré.<br><a href="editeur.html?scenario=' + id + '">Affiner dans l\'éditeur (déroulé, attendus, débits, pluie, événements) →</a><br><a href="animateur.html?scenario=' + id + '">Créer une session avec ce scénario →</a></div>';
   $('gEnreg').disabled = false;
 };
 

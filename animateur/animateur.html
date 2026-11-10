@@ -221,7 +221,7 @@ input[type=text],input[type=email],input[type=password],input[type=number],selec
 <!-- ============ sessions ============ -->
 <section id="ecSessions" class="sessions cache">
   <div class="hero">
-    <div><h1>Entraîner l'astreinte <em>sur une crue fictive</em></h1>
+    <div><h1>Entraîner l'astreinte <em>sur une crue réelle ou fictive</em></h1>
     <p>Choisissez un scénario et lancez une session : le joueur la rejoint depuis QGIS avec le code affiché, vous pilotez l'horloge, injectez les événements et suivez ses décisions en direct.</p></div>
   </div>
   <div class="actions">
@@ -242,8 +242,11 @@ input[type=text],input[type=email],input[type=password],input[type=number],selec
       <ul><li>un ou plusieurs pics, dont la fausse décrue ;</li><li>pluie répartie par sous-bassin, prévision fiable ou piégée ;</li><li>Vigies, clapets, désordres, appels des communes ;</li><li>attendus de la procédure et déroulé pédagogique.</li></ul>
       <div class="nb" id="nbScen"></div>
       <a class="bt" href="generateur.html" style="margin-top:14px">Ouvrir le créateur de scénarios →</a>
+      <a class="bt" href="editeur.html" style="margin-top:8px">Modifier un scénario existant →</a>
     </div>
   </div>
+  <div class="liste-titre"><h2>Scénarios</h2><span id="nbScen2"></span></div>
+  <div id="listeScen"></div>
   <div class="liste-titre"><h2>Sessions</h2><span id="nbSess"></span></div>
   <div id="listeSessions"></div>
   <div class="pied-vague"><svg viewBox="0 0 480 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 18C90 3 170 21 260 12C350 3 420 9 480 18V60H0Z" fill="#5cc3c7" opacity=".7"/><path d="M0 27C100 12 180 33 270 23C360 13 420 21 480 29V60H0Z" fill="#0a6fcf"/></svg><p>SAGYRC · Gérer et valoriser nos cours d'eau</p></div>
@@ -405,9 +408,9 @@ $('btSessions').onclick = function () { arreter(); chargerSessions(); };
 function remplirRythmes(sel, v) { sel.innerHTML = RYTHMES.map(function (r) { return '<option value="' + r[0] + '"' + (r[0] == v ? ' selected' : '') + '>' + r[1] + '</option>'; }).join(''); }
 async function chargerSessions() {
   montrer('ecSessions'); arreter();
-  var sc = await sb.from('scenarios').select('*').eq('actif', true).order('id');
+  var sc = await sb.from('scenarios').select('*').order('id');
   if (sc.error) return message('msgSessions', erreurTexte(sc.error), 'err');
-  SCENARIOS = sc.data;
+  TOUS_SCENARIOS = sc.data; SCENARIOS = sc.data.filter(function (s) { return s.actif !== false; });
   $('nvScen').innerHTML = SCENARIOS.map(function (s) { return '<option value="' + s.id + '">' + esc(s.nom) + ' – ' + s.duree_h + ' h</option>'; }).join('');
   $('nvScen').onchange = function () { var s = SCENARIOS.filter(function (x) { return x.id == $('nvScen').value; })[0]; $('nvDesc').textContent = s ? s.description : ''; };
   $('nvScen').onchange();
@@ -417,6 +420,7 @@ async function chargerSessions() {
   var nom = {}; SCENARIOS.forEach(function (s) { nom[s.id] = s.nom; });
   $('nbScen').textContent = SCENARIOS.length + ' scénario(s) disponible(s)';
   $('nbSess').textContent = ss.data.length ? ss.data.length + ' session(s), les plus récentes en premier' : '';
+  dessinerScenarios(ss.data);
   var cls = {'préparation': ['prep', 'En préparation'], 'en cours': ['cours', 'En cours'], 'terminée': ['fin', 'Terminée']};
   $('listeSessions').innerHTML = ss.data.length ? ss.data.map(function (s) {
     var st = cls[s.statut] || ['prep', s.statut];
@@ -425,6 +429,25 @@ async function chargerSessions() {
       + '<span class="statut ' + st[0] + '">' + esc(st[1]) + '</span>'
       + '<button class="bt s p" onclick="ouvrir(\'' + s.id + '\')">' + (s.statut === 'terminée' ? 'Bilan' : 'Ouvrir') + '</button><button class="bt s" onclick="supprimer(\'' + s.id + '\', \'' + s.code + '\')">Supprimer</button></div>';
   }).join('') : '<div class="vide-sess">Aucune session pour l\'instant : choisissez un scénario ci-dessus et créez la première.</div>';
+}
+var TOUS_SCENARIOS = [];
+function dessinerScenarios(sessions) {
+  var n = {}; (sessions || []).forEach(function (s) { n[s.scenario_id] = (n[s.scenario_id] || 0) + 1; });
+  $('nbScen2').textContent = TOUS_SCENARIOS.length + ' scénario(s)';
+  $('listeScen').innerHTML = TOUS_SCENARIOS.map(function (s) {
+    return '<div class="sess"><span class="code" style="font-size:12px">' + s.duree_h + ' h</span><div class="info"><b>' + esc(s.nom) + (s.actif === false ? ' <span style="color:var(--gris);font-weight:700">(masqué)</span>' : '') + '</b><span>'
+      + esc(s.source || '') + (s.modifie_le ? ' · modifié le ' + new Date(s.modifie_le).toLocaleString('fr-FR', {dateStyle: 'short', timeStyle: 'short'}) : '') + ' · ' + (n[s.id] || 0) + ' session(s) récente(s)</span></div>'
+      + '<a class="bt s p" href="editeur.html?scenario=' + s.id + '" style="display:inline-flex;align-items:center;text-decoration:none">Modifier</a>'
+      + '<button class="bt s" onclick="supprimerScenario(' + s.id + ')">Supprimer</button></div>';
+  }).join('') || '<div class="vide-sess">Aucun scénario.</div>';
+}
+async function supprimerScenario(id) {
+  var s = TOUS_SCENARIOS.filter(function (x) { return x.id === id; })[0]; if (!s) return;
+  var c = await sb.from('sessions').select('id', {count: 'exact', head: true}).eq('scenario_id', id), n = c.count || 0;
+  if (!confirm('Supprimer définitivement le scénario « ' + s.nom + ' » ?' + (n ? '\n\n' + n + ' session(s) utilisent ce scénario : elles seront supprimées aussi.' : ''))) return;
+  var r = await sb.from('sessions').delete().eq('scenario_id', id); if (r.error) return message('msgSessions', erreurTexte(r.error), 'err');
+  r = await sb.from('scenarios').delete().eq('id', id); if (r.error) return message('msgSessions', erreurTexte(r.error), 'err');
+  message('msgSessions', 'Scénario supprimé.', 'ok'); chargerSessions();
 }
 async function supprimer(id, code) {
   if (!confirm('Supprimer définitivement la session ' + code + ' (injections, actions du joueur, notes) ?')) return;
@@ -509,7 +532,7 @@ function graphe(h) {
     var pts = PAS.map(function (p) { return X(p.h).toFixed(1) + ',' + Y(p.q[k] / 1000).toFixed(1); }).join(' ');
     g += '<polyline points="' + pts + '" fill="none" stroke="' + (COUL[k] || '#888') + '" stroke-width="' + (k === 'V301502002' ? 2.6 : 1.6) + '"/>';
   });
-  for (var t = 0; t <= D; t += 6) g += '<text x="' + X(t).toFixed(1) + '" y="' + (y0 + 14) + '" text-anchor="middle" font-size="9" fill="#3f5f86">H+' + t + '</text>';
+  for (var t = 0; t <= D; t += 6) { var hs_ = heureSim(t).h; g += '<text x="' + X(t).toFixed(1) + '" y="' + (y0 + 14) + '" text-anchor="middle" font-size="9" fill="#3f5f86">' + (hs_ === '00:00' ? heureSim(t).j.split(' ').slice(0, 2).join(' ') : hs_) + '</text>'; }
   g += '<path d="M' + X(h).toFixed(1) + ' ' + (y1 - 6) + 'V' + y0 + '" stroke="#0b3a78" stroke-width="1.5"/>';
   var vf = ETAT.valeurs && ETAT.valeurs.V301502002;
   if (vf != null) g += '<circle cx="' + X(h).toFixed(1) + '" cy="' + Y(vf / 1000).toFixed(1) + '" r="4.5" fill="#0a6fcf" stroke="#fff" stroke-width="2"/>';
@@ -576,7 +599,7 @@ function evalAttendus(E, h) {
       if (a.test === 'niveau' && a.valeur === 'NORMAL') return e.type === 'niveau' && d.niveau === 'NORMAL' && monte !== null && Number(e.h_simulee) >= monte;
       if (a.test === 'episode') return e.type === 'episode' && d.etat === 'ouvert';
       if (a.test === 'niveau') return e.type === 'niveau' && (a.valeur === 'NORMAL' ? d.niveau === 'NORMAL' : NIV[d.niveau] && NIV[a.valeur] && NIV[d.niveau].o >= NIV[a.valeur].o);
-      if (a.test === 'action') return e.type === 'action' && d.fait !== false && String(d.libelle || '').toLowerCase().indexOf(String(a.valeur).toLowerCase()) >= 0;
+      if (a.test === 'action' || a.test === 'action_f') return e.type === 'action' && d.fait !== false && String(d.libelle || '').toLowerCase().indexOf(String(a.valeur).toLowerCase()) >= 0;
       if (a.test === 'scenario') return e.type === 'scenario' && String(d.q) === String(a.valeur);
       if (a.test === 'vigie') { var v = String(a.valeur).split('|'); return e.type === 'vigie' && String(d.point) === v[0] && (!v[1] || d.statut === v[1]); }
       return false;
@@ -586,7 +609,8 @@ function evalAttendus(E, h) {
       var he = Number(trouve.h_simulee), late = he > t + tol;
       if (late) nbRet++;
       st = (trouve.manuel ? 'Constaté' : 'Fait') + ' à ' + heureSim(he).h + (late ? ' (retard ' + fr(he - t, 1) + ' h)' : he < t - tol ? ' (anticipé)' : ''); sc = late ? '#b5560a' : '#2e7d4f';
-    } else if (h > t + tol) { st = 'Non fait'; sc = '#c0392b'; nbManq++; }
+    } else if (h > t + tol && a.test === 'action_f') { st = 'Facultative, non faite'; sc = '#5c6f85'; }
+    else if (h > t + tol) { st = 'Non fait'; sc = '#c0392b'; nbManq++; }
     else if (h >= t) { st = 'Attendu maintenant'; sc = '#0a6fcf'; }
     else { st = 'À venir'; sc = '#5c6f85'; }
     return {a: a, st: st, sc: sc, fait: !!trouve};
