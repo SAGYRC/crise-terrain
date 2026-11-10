@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Animateur d'exercice de crue – SAGYRC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+:root{--marine:#0b3a78;--bleu:#0a6fcf;--fond:#f3f6fa;--bord:#cfe0f1;--gris:#3f5f86;--vert:#2e7d4f;--rouge:#c0392b;--orange:#b5560a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--fond);color:var(--marine);font:13.5px Nunito,"Segoe UI",system-ui,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.cache{display:none!important}
+header{display:flex;align-items:center;gap:16px;padding:10px 20px;background:var(--marine);color:#fff;flex-wrap:wrap}
+header .titre b{display:block;font-size:18px;font-weight:900}
+header .titre span{font-size:12px;color:#cfe0f1}
+header .droite{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:12.5px;color:#cfe0f1}
+.pastille{display:inline-flex;align-items:center;gap:7px;border-radius:99px;padding:5px 12px;font-weight:900;font-size:12.5px;color:#fff}
+.pastille i{width:8px;height:8px;border-radius:50%;background:#fff;display:inline-block}
+.lien{background:none;border:0;color:#cfe0f1;text-decoration:underline;padding:0}
+.carte{background:#fff;border:1px solid var(--bord);border-radius:12px;padding:14px}
+.sur{font-size:11.5px;font-weight:800;color:var(--gris);text-transform:uppercase;letter-spacing:.04em}
+h2{margin:0 0 8px;font-size:15px;font-weight:900}
+.bt{min-height:38px;padding:0 14px;border-radius:8px;border:1.5px solid var(--bord);background:#fff;color:var(--marine);font-weight:800}
+.bt:hover{border-color:var(--bleu)}
+.bt.p{background:var(--bleu);border-color:var(--bleu);color:#fff}
+.bt.m{background:var(--marine);border-color:var(--marine);color:#fff}
+.bt.r{background:var(--rouge);border-color:var(--rouge);color:#fff}
+.bt.s{min-height:30px;padding:0 10px;font-size:12px}
+a.lienbt{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+label{display:block;font-size:12px;font-weight:800;color:var(--gris);margin-top:9px}
+input[type=text],input[type=email],input[type=password],input[type=number],select,textarea{width:100%;min-height:36px;border:1.5px solid var(--bord);border-radius:8px;padding:5px 10px;background:#fff;margin-top:3px}
+textarea{resize:vertical}
+.msg{border-radius:8px;padding:8px 12px;margin-top:10px;font-weight:700}
+.msg.err{background:#fdecea;color:#922b21}.msg.ok{background:#e8f6ee;color:#145a32}.msg.info{background:#eaf2fb;color:var(--marine)}
+/* écrans */
+.ecran{max-width:520px;margin:48px auto;padding:0 16px}
+.sessions{max-width:900px;margin:28px auto;padding:0 16px;display:grid;gap:14px}
+.ligne-session{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #eef3f8}
+.code{font-family:Consolas,monospace;font-weight:900;letter-spacing:.12em;background:#eaf2fb;border-radius:6px;padding:2px 8px}
+/* console */
+main.console{display:grid;grid-template-columns:440px minmax(320px,1fr) minmax(380px,1.15fr);gap:14px;padding:14px 20px;align-items:start}
+.col{display:grid;gap:12px;min-width:0}
+.horloge{display:flex;align-items:center;gap:10px;margin-top:6px}
+.horloge .h{flex:1;text-align:center}
+.horloge .h b{display:block;font-size:34px;font-weight:900;line-height:1}
+.horloge .h span{font-size:13px;color:var(--gris);font-weight:700}
+.fleche{width:52px;height:52px;border-radius:12px;border:1.5px solid var(--bleu);background:#fff;color:var(--bleu);display:grid;place-items:center}
+.fleche.p{background:var(--bleu);color:#fff;border:0}
+.rang{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.rang>*{flex:1}
+.valeurs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.valeurs .v{font-size:21px;font-weight:900}
+.valeurs .t{font-size:11.5px;color:var(--gris);font-weight:700}
+.legende{display:flex;gap:14px;font-size:11.5px;color:var(--gris);flex-wrap:wrap}
+.legende span{display:flex;align-items:center;gap:5px}
+.ev{display:flex;gap:10px;align-items:flex-start;border:1px solid #e1eaf4;border-radius:10px;padding:8px 10px;margin-top:7px;background:#fff}
+.ev .hh{flex:none;width:48px;font-weight:900}
+.ev .c{flex:1;min-width:0}
+.ev .c b{display:block;font-weight:800}
+.ev .canal{font-size:11.5px;color:var(--gris)}
+.ev .consigne{font-size:12px;background:#fff8e6;border-radius:6px;padding:4px 7px;margin-top:4px;color:#6b4e00}
+.ev .etat{flex:none;font-size:11.5px;font-weight:800;text-align:right;max-width:120px}
+.ev.futur{opacity:.72}
+.ev.now{border-color:var(--bleu);background:#e8f2fc}
+.niveaux{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.niveaux>div{border-radius:10px;background:var(--fond);padding:10px 12px}
+.badge{display:inline-block;color:#fff;border-radius:99px;padding:2px 12px;font-weight:900;font-size:15px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;font-size:11px;color:var(--gris);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e6eef7;padding:4px}
+td{padding:5px 4px;border-bottom:1px solid #f0f4f9;vertical-align:top}
+.tag{display:inline-block;font-size:10.5px;font-weight:900;color:#fff;border-radius:5px;padding:0 5px;margin-right:5px}
+.jr{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid #f0f4f9;font-size:12.5px}
+.jr b{flex:none;width:44px}
+.defile{max-height:360px;overflow:auto}
+footer.pied{display:flex;align-items:center;gap:12px;padding:10px 20px;background:#fff;border-top:1px solid var(--bord);position:sticky;bottom:0;flex-wrap:wrap}
+dialog{border:0;border-radius:14px;padding:18px;max-width:520px;width:92%;box-shadow:0 12px 40px rgba(11,58,120,.25)}
+dialog::backdrop{background:rgba(11,58,120,.35)}
+#bilan{display:none}
+#bilan{font-family:Nunito,'Segoe UI',Arial,sans-serif;color:#173a63;font-size:10pt;line-height:1.45;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff}
+#bilan b{color:#0b3a78;font-weight:800}
+@page{size:A4;margin:12mm 12mm 14mm}
+@media print{
+  body>*:not(#bilan){display:none!important}
+  #bilan{display:block!important;padding:0}
+  body{background:#fff!important}
+}
+.bent{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.bent img{height:46px}
+.bent .t{text-align:right}
+.bent h1{margin:0;font-size:19pt;font-weight:900;color:#0b3a78;line-height:1.15}
+.bent .s1{font-weight:800;color:#0a6fcf;font-size:11pt}
+.bent .s2{font-size:9pt;color:#4a6a8f;font-weight:700}
+.bexo{display:inline-block;background:#7d3c98;color:#fff;border-radius:99px;padding:1px 9px;font-size:8.5pt;letter-spacing:.06em;vertical-align:4px}
+.bhero{display:flex;align-items:center;gap:14px;border-radius:16px;padding:12px 16px;color:#fff;margin-bottom:8px;break-inside:avoid}
+.bhero .c{width:70px;height:70px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:19pt;font-weight:900;flex:none;box-sizing:border-box}
+.bhero .c small{font-size:10pt}
+.bhero>div:nth-child(2){flex:1}
+.bhero .k{font-size:8.5pt;font-weight:900;letter-spacing:.08em}
+.bhero .lb{font-size:16pt;font-weight:900;line-height:1.15}
+.bhero .d{font-size:9.5pt;font-weight:700}
+.bhero .r div{background:#fff;color:#0b3a78;border-radius:12px;padding:6px 12px;text-align:center}
+.bhero .r b{display:block;font-size:17pt;font-weight:900}
+.bhero .r small{display:block;font-size:7.5pt;font-weight:800;color:#4a6a8f}
+.bks{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px;break-inside:avoid}
+.bk{border-radius:12px;padding:8px 10px}
+.bk .l{font-size:7.5pt;font-weight:900;color:#4a6a8f;letter-spacing:.05em;text-transform:uppercase}
+.bk .v{font-size:17pt;font-weight:900;color:#0b3a78;line-height:1.2}
+.bk .v small{font-size:9pt}
+.bk .s{font-size:8.5pt;color:#4a6a8f;font-weight:700}
+.bbar{display:flex;height:12px;border-radius:6px;background:#e3edf7;overflow:hidden;margin:4px 0}
+.bbar i{display:block;height:100%}
+.bleg{font-size:8pt;color:#4a6a8f;font-weight:700;margin-bottom:8px}
+.bleg span{margin-right:12px}.bleg i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.benc{background:#e8f2fc;border:1px solid #b9d0ea;border-radius:12px;padding:8px 12px;font-size:9.5pt;margin:6px 0 8px;break-inside:avoid}
+.benc.ne{background:#f5f9fd;border-color:#dbe7f3;color:#4a6a8f}
+.bsec{display:flex;align-items:center;gap:8px;margin:14px 0 6px;break-after:avoid}
+.bsec span{width:24px;height:24px;border-radius:50%;background:#0a6fcf;color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;font-size:10pt}
+.bsec h2{margin:0;font-size:13.5pt;font-weight:900;color:#0b3a78}
+.btb{width:100%;border-collapse:separate;border-spacing:0;border:1px solid #cfe0f1;border-radius:12px;font-size:9.5pt;overflow:hidden}
+.btb th{background:#e8f2fc;color:#0b3a78;text-align:left;font-size:7.5pt;font-weight:900;letter-spacing:.04em;text-transform:uppercase;padding:5px 8px}
+.btb td{padding:4px 8px;border-top:1px solid #edf3f9;vertical-align:top}
+.btb tr{break-inside:avoid}.btb tr.z td{background:#fafcfe}
+.bp{display:inline-block;border-radius:99px;padding:1px 8px;font-weight:800;font-size:8.5pt}
+.bbloc{border:1px solid #cfe0f1;border-radius:12px;padding:4px 12px}
+.bev{display:flex;gap:8px;padding:4px 0;border-top:1px solid #edf3f9;font-size:9.5pt;break-inside:avoid}
+.bev:first-child{border-top:0}
+.bev .h{width:44px;font-weight:900;color:#0b3a78;flex:none}
+.bev .d i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-top:4px}
+.bsrc{font-size:8pt;color:#4a6a8f;margin-top:12px;border-top:2px solid #e8f2fc;padding-top:5px}
+@media (max-width:1180px){main.console{grid-template-columns:1fr 1fr}}
+@media (max-width:760px){main.console{grid-template-columns:1fr}}
+
+/* ===== charte SAGYRC (comme l'observatoire et le site terrain) ===== */
+:root{--marine:#0b3a78;--bleu:#0a6fcf;--bleu2:#2fa4ec;--turquoise:#5cc3c7;--fond:#f5f9fd;--teinte:#e8f2fc;--bord:#cfe0f1;--gris:#3f5f86}
+body{background:var(--fond)}
+header.entete{display:block;padding:0;background:#fff;color:var(--marine);border-bottom:1px solid var(--bord);position:relative}
+header.entete .barre{display:flex;align-items:center;gap:14px;padding:10px 22px 8px;flex-wrap:wrap}
+header.entete .logo{height:44px;width:auto;display:block}
+header.entete .sep{width:1px;align-self:stretch;background:var(--bord);margin:2px 2px}
+header.entete .titre b{display:block;font-size:19px;font-weight:900;color:var(--marine);line-height:1.15}
+header.entete .titre span{font-size:12.5px;color:var(--bleu);font-weight:700}
+header.entete .droite{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--gris)}
+header.entete .qui{background:var(--teinte);border-radius:99px;padding:5px 12px;font-weight:700}
+header.entete .lien{color:var(--bleu);text-decoration:none;font-weight:800;border:1.5px solid var(--bord);border-radius:99px;padding:5px 13px;background:#fff}
+header.entete .lien:hover{border-color:var(--bleu)}
+.vagues{display:block;width:100%;height:16px}
+.carte{border-radius:14px}
+.bt{border-radius:99px;min-height:38px;padding:0 16px}
+.bt.s{border-radius:99px}
+input[type=text],input[type=email],input[type=password],input[type=number],select,textarea{border-radius:10px}
+/* connexion */
+.accueil-connexion{max-width:440px;margin:56px auto;padding:0 16px;text-align:center}
+.accueil-connexion .carte{text-align:left;padding:22px}
+.accueil-connexion .grand-logo{height:76px;margin:0 auto 10px;display:block}
+.accueil-connexion h1{margin:0;font-size:24px;font-weight:900}
+.accueil-connexion .sous{color:var(--bleu);font-weight:700;margin:4px 0 18px}
+/* sessions */
+.sessions{max-width:1060px;margin:0 auto;padding:22px 20px 40px;display:block}
+.hero{display:flex;align-items:flex-end;gap:20px;margin:6px 0 16px;flex-wrap:wrap}
+.hero h1{margin:0;font-size:27px;font-weight:900;line-height:1.1}
+.hero h1 em{font-style:normal;color:var(--bleu)}
+.hero p{margin:6px 0 0;color:var(--gris);max-width:620px}
+.actions{display:grid;grid-template-columns:1.35fr 1fr;gap:14px}
+.action h2{font-size:17px;display:flex;align-items:center;gap:10px}
+.action .pastille-ic{width:36px;height:36px;border-radius:50%;background:var(--teinte);color:var(--bleu);display:grid;place-items:center;flex:none}
+.action.scen{background:linear-gradient(160deg,#0b3a78 0%,#0a6fcf 100%);color:#fff;border:0;display:flex;flex-direction:column}
+.action.scen h2{color:#fff}
+.action.scen .pastille-ic{background:rgba(255,255,255,.18);color:#fff}
+.action.scen p{color:#dceafa;margin:6px 0 0;font-size:13px;line-height:1.5}
+.action.scen ul{margin:10px 0 0;padding-left:18px;color:#dceafa;font-size:13px;line-height:1.6}
+.action.scen .bt{margin-top:auto;background:#fff;color:var(--marine);border-color:#fff;align-self:flex-start;display:inline-flex;align-items:center;text-decoration:none}
+.action.scen .nb{font-size:12px;color:#bcd6f3;margin-top:10px}
+.liste-titre{display:flex;align-items:center;gap:10px;margin:22px 0 10px}
+.liste-titre h2{margin:0;font-size:17px}
+.liste-titre span{color:var(--gris);font-size:12.5px}
+.sess{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--bord);border-radius:14px;padding:12px 14px;margin-top:8px}
+.sess .code{font-size:15px}
+.sess .info{flex:1;min-width:0}
+.sess .info b{display:block;font-size:14px}
+.sess .info span{font-size:12px;color:var(--gris)}
+.statut{border-radius:99px;padding:3px 11px;font-size:12px;font-weight:800;white-space:nowrap}
+.statut.prep{background:var(--teinte);color:var(--marine)}.statut.cours{background:#e3f5e9;color:#1e6b3d}.statut.fin{background:#eef1f5;color:#5c6f85}
+.vide-sess{background:#fff;border:1.5px dashed var(--bord);border-radius:14px;padding:22px;text-align:center;color:var(--gris)}
+.pied-vague{position:relative;margin-top:30px}
+.pied-vague svg{display:block;width:100%;height:60px}
+.pied-vague p{position:absolute;left:0;right:0;bottom:14px;margin:0;text-align:center;color:#fff;font-weight:800;font-size:13px}
+@media (max-width:860px){.actions{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header class="entete">
+  <svg class="vagues" viewBox="0 0 1200 16" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0H1200V7C1000 16 800 2 600 8S200 15 0 6Z" fill="#2fa4ec" opacity=".55"/><path d="M0 0H1200V4C980 11 800 0 600 5S220 10 0 3Z" fill="#0a6fcf"/></svg>
+  <div class="barre">
+    <img class="logo" src="logo_sagyrc.png" alt="SAGYRC – Bassin de l'Yzeron">
+    <span class="sep"></span>
+    <div class="titre"><b>Animateur d'exercice de crue</b><span>Préparer, animer et débriefer les exercices de gestion de crise</span></div>
+    <div class="droite"><span id="qui" class="qui cache"></span><button class="lien cache" id="btSessions">Accueil</button><button class="lien cache" id="btDeco">Se déconnecter</button></div>
+  </div>
+</header>
+
+<!-- ============ connexion ============ -->
+<section id="ecConnexion" class="accueil-connexion cache">
+  <img class="grand-logo" src="logo_sagyrc.png" alt="SAGYRC">
+  <h1>Animateur d'exercice de crue</h1>
+  <p class="sous">Réservé aux comptes déclarés comme animateurs</p>
+  <div class="carte">
+    <label for="email" style="margin-top:0">Adresse e-mail</label><input id="email" type="email" autocomplete="username">
+    <label for="mdp">Mot de passe</label><input id="mdp" type="password" autocomplete="current-password">
+    <div class="rang" style="margin-top:14px"><button class="bt p" id="btConnexion">Se connecter</button><button class="bt" id="btCreer">Créer mon compte</button></div>
+    <div id="msgConnexion"></div>
+  </div>
+</section>
+
+<!-- ============ sessions ============ -->
+<section id="ecSessions" class="sessions cache">
+  <div class="hero">
+    <div><h1>Entraîner l'astreinte <em>sur une crue fictive</em></h1>
+    <p>Choisissez un scénario et lancez une session : le joueur la rejoint depuis QGIS avec le code affiché, vous pilotez l'horloge, injectez les événements et suivez ses décisions en direct.</p></div>
+  </div>
+  <div class="actions">
+    <div class="carte action">
+      <h2><span class="pastille-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 5v14l11-7z"/></svg></span>Nouvelle session d'exercice</h2>
+      <label for="nvScen">Scénario</label><select id="nvScen"></select>
+      <div id="nvDesc" style="font-size:12.5px;color:var(--gris);margin-top:6px;line-height:1.45"></div>
+      <div class="rang">
+        <div><label for="nvJoueur">Joueur (nom ou poste)</label><input id="nvJoueur" type="text" placeholder="ex. C. Martin – astreinte"></div>
+        <div><label for="nvVitesse">Rythme</label><select id="nvVitesse"></select></div>
+      </div>
+      <div class="rang" style="margin-top:14px"><button class="bt p" id="btNouvelle">Créer la session</button></div>
+      <div id="msgSessions"></div>
+    </div>
+    <div class="carte action scen">
+      <h2><span class="pastille-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 17c3 0 3-3 6-3s3 3 6 3 3-3 6-3M3 11c3 0 3-6 6-6s3 6 6 6"/></svg></span>Créer un scénario</h2>
+      <p>Composez une crue sur mesure, le créateur calcule tout le reste.</p>
+      <ul><li>un ou plusieurs pics, dont la fausse décrue ;</li><li>pluie répartie par sous-bassin, prévision fiable ou piégée ;</li><li>Vigies, clapets, désordres, appels des communes ;</li><li>attendus de la procédure et déroulé pédagogique.</li></ul>
+      <div class="nb" id="nbScen"></div>
+      <a class="bt" href="generateur.html" style="margin-top:14px">Ouvrir le créateur de scénarios →</a>
+    </div>
+  </div>
+  <div class="liste-titre"><h2>Sessions</h2><span id="nbSess"></span></div>
+  <div id="listeSessions"></div>
+  <div class="pied-vague"><svg viewBox="0 0 480 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 18C90 3 170 21 260 12C350 3 420 9 480 18V60H0Z" fill="#5cc3c7" opacity=".7"/><path d="M0 27C100 12 180 33 270 23C360 13 420 21 480 29V60H0Z" fill="#0a6fcf"/></svg><p>SAGYRC · Gérer et valoriser nos cours d'eau</p></div>
+</section>
+
+<!-- ============ console ============ -->
+<section id="ecConsole" class="cache">
+  <div style="display:flex;align-items:center;gap:14px;padding:12px 20px 0;flex-wrap:wrap">
+    <div><span class="sur">Session</span><div style="font-size:16px;font-weight:900" id="cScen"></div></div>
+    <div><span class="sur">Code à donner au joueur</span><div style="font-size:22px" class="code" id="cCode"></div></div>
+    <div><span class="sur">Joueur</span><div style="font-weight:800" id="cJoueur"></div></div>
+    <div style="margin-left:auto" id="cStatut"></div>
+  </div>
+  <main class="console">
+    <div class="col">
+      <div class="carte">
+        <div style="display:flex;justify-content:space-between"><span class="sur">Heure simulée</span><span style="font-size:12px;color:var(--gris)" id="cRel"></span></div>
+        <div class="horloge">
+          <button class="fleche" id="btMoins" aria-label="Reculer d'une heure"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <div class="h"><b id="cHeure">–</b><span id="cJour"></span></div>
+          <button class="fleche p" id="btPlus" aria-label="Avancer d'une heure"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        </div>
+        <div class="rang">
+          <button class="bt p" id="btDemarrer">Démarrer l'exercice</button>
+          <button class="bt" id="btLecture">▶ Lecture</button>
+        </div>
+        <div class="rang">
+          <div><label for="cVitesse">Rythme</label><select id="cVitesse"></select></div>
+          <div><label for="cAller">Aller à l'heure (H+)</label><div style="display:flex;gap:6px"><input id="cAller" type="number" min="0" step="0.5"><button class="bt s" id="btAller">OK</button></div></div>
+        </div>
+      </div>
+      <div class="carte">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Hydrogramme du scénario</h2><span style="font-size:11.5px;color:var(--gris)" id="cPeriode"></span></div>
+        <div id="cGraphe"></div>
+        <div class="legende" id="cLegende"></div>
+      </div>
+      <div class="carte valeurs" id="cValeurs"></div>
+    </div>
+
+    <div class="col">
+      <div class="carte">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Événements du scénario</h2><span style="font-size:12px;color:var(--gris)" id="cNbEv"></span></div>
+        <div id="cEvts" class="defile" style="max-height:560px"></div>
+        <div class="rang"><button class="bt p" id="btLibre">Injecter un événement libre…</button></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="carte niveaux">
+        <div><div class="sur">Niveau attendu</div><div style="margin-top:4px" id="cAtt"></div></div>
+        <div><div class="sur">Niveau du joueur</div><div style="margin-top:4px" id="cJou"></div><div id="cEcart" style="font-size:12px;font-weight:800;margin-top:3px"></div></div>
+      </div>
+      <div class="carte">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Attendus de la procédure</h2><span style="font-size:12px;color:var(--gris)" id="cConnexionQgis"></span></div>
+        <div class="defile" style="max-height:420px"><table><thead><tr><th>Attendu</th><th>Action</th><th>Réalisé</th></tr></thead><tbody id="cAttendus"></tbody></table></div>
+      </div>
+      <div class="carte">
+        <h2>Ce que fait le joueur</h2>
+        <div id="cJournal" class="defile" style="max-height:260px"></div>
+      </div>
+    </div>
+  </main>
+  <footer class="pied">
+    <span id="cEcarts"></span>
+    <button class="bt" style="margin-left:auto" id="btNote">Notes de débriefing</button>
+    <button class="bt" id="btBilan">Bilan (imprimer / PDF)</button>
+    <button class="bt m" id="btTerminer">Terminer l'exercice</button>
+  </footer>
+</section>
+
+<!-- ============ dialogues ============ -->
+<dialog id="dLibre">
+  <h2>Injecter un événement libre</h2>
+  <label for="lType">Type</label>
+  <select id="lType">
+    <option value="releve_vigie">Relevé de Vigie (hauteur à une échelle)</option>
+    <option value="presence_vigie">Appel d'une Vigie : en place ou indisponible</option>
+    <option value="signalement">Signalement terrain</option>
+    <option value="clapet">État d'un clapet anti-retour</option>
+    <option value="batardeau">État d'un batardeau</option>
+    <option value="message">Message / appel (affiché dans QGIS)</option>
+    <option value="consigne">Consigne pour moi seulement (non transmise)</option>
+  </select>
+  <div id="lChamps"></div>
+  <label for="lTitre">Titre (liste des événements)</label><input id="lTitre" type="text">
+  <div class="rang"><button class="bt" id="lAnnuler">Annuler</button><button class="bt p" id="lValider">Injecter maintenant</button></div>
+  <div id="lMsg"></div>
+</dialog>
+<dialog id="dNote">
+  <h2>Notes de débriefing</h2>
+  <textarea id="nTexte" rows="10" placeholder="Points forts, écarts, questions à reprendre…"></textarea>
+  <div class="rang"><button class="bt" id="nFermer">Fermer</button><button class="bt p" id="nEnregistrer">Enregistrer</button></div>
+</dialog>
+
+<div id="bilan"></div>
+
+<script>
+var SUPABASE_URL = 'https://rfojuesvlasdmnuflkfh.supabase.co';
+var SUPABASE_CLE = 'sb_publishable_Yny_zyyIompw7vu3jzftIw_QrTxRoB3';
+var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_CLE);
+
+var NIV = {NORMAL: {o: 0, c: '#7f8c8d', l: 'Situation normale / retour à la normale'}, N0: {o: 1, c: '#3f5f86', l: 'Veille renforcée'}, N1: {o: 2, c: '#8a6d00', l: 'Pré-alerte'},
+           N2: {o: 3, c: '#c75c0a', l: 'Alerte'}, N2bis: {o: 4, c: '#c0392b', l: 'Vigilance clapets'}, N3: {o: 5, c: '#8e1b12', l: 'Danger'}};
+var STATIONS = {V301502002: 'Yzeron à Francheville', V301501002: 'Yzeron à Craponne', V30150230: 'Charbonnières', V301502401: 'Ratier', V3015810: 'Mercier', GLV0300Q: 'Chaudanne – Léchère', PT_BARGE: 'Chaudanne – pont de la Barge'};
+var COUL = {V301502002: '#0a6fcf', V301501002: '#e08a1a', V30150230: '#7b61c9', V301502401: '#2e9e8f', V3015810: '#9aa9ba', GLV0300Q: '#b0779a', PT_BARGE: '#c9a227'};
+var POINTS = [['696009', 'Stade du Merlo (S6)'], ['691101', 'Pont rouge (S5/S6)'], ['691105', 'Rue des Platanes (S4)'], ['691104', 'Pont de Limbourg (S4/S5)'],
+  ['692604', 'Résidence Graziella (S2)'], ['696001', "Pont d'Oullins (S8)"], ['696002', 'Passerelle Chabrières (S8)'], ['696003', 'Passerelle Lionel Terray (S8)'],
+  ['696005', 'Pont Blanc (S7/S8)'], ['691601', 'Pont des Bruyères (S1)'], ['693401', 'Ruette Mulet (S3)']];
+var RYTHMES = [[2, '1 h simulée = 2 min'], [5, '1 h simulée = 5 min'], [10, '1 h simulée = 10 min'], [15, '1 h simulée = 15 min'], [30, '1 h simulée = 30 min'], [60, 'Temps réel (1 h = 1 h)']];
+var SCENARIOS = [], SESSION = null, ETAT = null, PAS = [], EVTS = [], ATT = [], minuteur = null;
+
+function $(id) { return document.getElementById(id); }
+function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]; }); }
+function fr(x, d) { return x == null || isNaN(x) ? '–' : Number(x).toFixed(d).replace('.', ','); }
+function montrer(id) { ['ecConnexion', 'ecSessions', 'ecConsole'].forEach(function (e) { $(e).classList.toggle('cache', e !== id); }); }
+function message(el, txt, type) { $(el).innerHTML = txt ? '<div class="msg ' + (type || 'info') + '">' + esc(txt) + '</div>' : ''; }
+function erreurTexte(e) { return (e && (e.message || e.error_description)) || String(e); }
+function heureSim(h, sc) {
+  var d = new Date(new Date((sc || ETAT.scenario).debut_simule).getTime() + h * 3600e3);
+  return {h: d.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris'}),
+          j: d.toLocaleDateString('fr-FR', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris'})};
+}
+function hReel(iso) { return iso ? new Date(iso).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}) : ''; }
+function badge(n) { var x = NIV[n]; return n ? '<span class="badge" style="background:' + (x ? x.c : '#9aa9ba') + '">' + esc(n) + '</span>' : '<span class="badge" style="background:#9aa9ba">—</span>'; }
+
+/* ------------------------------------------------------------ connexion */
+async function demarrage() {
+  var r = await sb.auth.getSession();
+  if (!r.data.session) { montrer('ecConnexion'); return; }
+  $('qui').textContent = r.data.session.user.email;
+  $('qui').classList.remove('cache');
+  $('btDeco').classList.remove('cache');
+  var a = await sb.rpc('est_animateur');
+  if (a.error || !a.data) {
+    montrer('ecConnexion');
+    message('msgConnexion', 'Compte connecté, mais pas encore déclaré comme animateur. Demandez à l\'administrateur d\'ajouter ' + r.data.session.user.email + ' à la liste des animateurs.', 'err');
+    return;
+  }
+  $('btSessions').classList.remove('cache');
+  await chargerSessions();
+}
+$('btConnexion').onclick = async function () {
+  message('msgConnexion', 'Connexion…');
+  var r = await sb.auth.signInWithPassword({email: $('email').value.trim(), password: $('mdp').value});
+  if (r.error) return message('msgConnexion', 'Connexion refusée : ' + erreurTexte(r.error), 'err');
+  message('msgConnexion', ''); demarrage();
+};
+$('btCreer').onclick = async function () {
+  if ($('mdp').value.length < 8) return message('msgConnexion', 'Choisissez un mot de passe d\'au moins 8 caractères.', 'err');
+  var r = await sb.auth.signUp({email: $('email').value.trim(), password: $('mdp').value});
+  if (r.error) return message('msgConnexion', /database error|saving new user/i.test(erreurTexte(r.error)) ? 'Adresse non autorisée : le SAGYRC doit d\'abord inscrire votre adresse dans la liste des animateurs.' : 'Création refusée : ' + erreurTexte(r.error), 'err');
+  message('msgConnexion', 'Compte créé. Ouvrez le lien de confirmation reçu par e-mail, puis revenez sur cette page pour vous connecter.', 'ok');
+};
+$('btDeco').onclick = async function () { arreter(); await sb.auth.signOut(); location.reload(); };
+$('btSessions').onclick = function () { arreter(); chargerSessions(); };
+
+/* ------------------------------------------------------------ sessions */
+function remplirRythmes(sel, v) { sel.innerHTML = RYTHMES.map(function (r) { return '<option value="' + r[0] + '"' + (r[0] == v ? ' selected' : '') + '>' + r[1] + '</option>'; }).join(''); }
+async function chargerSessions() {
+  montrer('ecSessions'); arreter();
+  var sc = await sb.from('scenarios').select('*').eq('actif', true).order('id');
+  if (sc.error) return message('msgSessions', erreurTexte(sc.error), 'err');
+  SCENARIOS = sc.data;
+  $('nvScen').innerHTML = SCENARIOS.map(function (s) { return '<option value="' + s.id + '">' + esc(s.nom) + ' – ' + s.duree_h + ' h</option>'; }).join('');
+  $('nvScen').onchange = function () { var s = SCENARIOS.filter(function (x) { return x.id == $('nvScen').value; })[0]; $('nvDesc').textContent = s ? s.description : ''; };
+  $('nvScen').onchange();
+  remplirRythmes($('nvVitesse'), 10);
+  var ss = await sb.from('sessions').select('id, code, statut, joueur, cree_le, termine_le, scenario_id').order('cree_le', {ascending: false}).limit(30);
+  if (ss.error) return message('msgSessions', erreurTexte(ss.error), 'err');
+  var nom = {}; SCENARIOS.forEach(function (s) { nom[s.id] = s.nom; });
+  $('nbScen').textContent = SCENARIOS.length + ' scénario(s) disponible(s)';
+  $('nbSess').textContent = ss.data.length ? ss.data.length + ' session(s), les plus récentes en premier' : '';
+  var cls = {'préparation': ['prep', 'En préparation'], 'en cours': ['cours', 'En cours'], 'terminée': ['fin', 'Terminée']};
+  $('listeSessions').innerHTML = ss.data.length ? ss.data.map(function (s) {
+    var st = cls[s.statut] || ['prep', s.statut];
+    return '<div class="sess"><span class="code">' + esc(s.code) + '</span><div class="info"><b>' + esc(nom[s.scenario_id] || 'Scénario ' + s.scenario_id) + '</b><span>'
+      + esc(s.joueur || 'joueur non renseigné') + ' · créée le ' + new Date(s.cree_le).toLocaleString('fr-FR', {dateStyle: 'short', timeStyle: 'short'}) + '</span></div>'
+      + '<span class="statut ' + st[0] + '">' + esc(st[1]) + '</span>'
+      + '<button class="bt s p" onclick="ouvrir(\'' + s.id + '\')">' + (s.statut === 'terminée' ? 'Bilan' : 'Ouvrir') + '</button><button class="bt s" onclick="supprimer(\'' + s.id + '\', \'' + s.code + '\')">Supprimer</button></div>';
+  }).join('') : '<div class="vide-sess">Aucune session pour l\'instant : choisissez un scénario ci-dessus et créez la première.</div>';
+}
+async function supprimer(id, code) {
+  if (!confirm('Supprimer définitivement la session ' + code + ' (injections, actions du joueur, notes) ?')) return;
+  var r = await sb.from('sessions').delete().eq('id', id);
+  if (r.error) return message('msgSessions', erreurTexte(r.error), 'err');
+  chargerSessions();
+}
+function nouveauCode() { var a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', c = ''; for (var i = 0; i < 6; i++) c += a[Math.floor(Math.random() * a.length)]; return c; }
+$('btNouvelle').onclick = async function () {
+  for (var essai = 0; essai < 5; essai++) {
+    var r = await sb.from('sessions').insert({code: nouveauCode(), scenario_id: +$('nvScen').value, joueur: $('nvJoueur').value.trim() || null, vitesse_min: +$('nvVitesse').value}).select('id').single();
+    if (!r.error) return ouvrir(r.data.id);
+    if (!/duplicate|unique/i.test(r.error.message)) return message('msgSessions', erreurTexte(r.error), 'err');
+  }
+};
+
+/* ------------------------------------------------------------ console */
+function arreter() { if (minuteur) clearInterval(minuteur); minuteur = null; }
+async function ouvrir(id) {
+  arreter();
+  var s = await sb.from('sessions').select('scenario_id').eq('id', id).single();
+  if (s.error) return alert(erreurTexte(s.error));
+  var sid = s.data.scenario_id;
+  var r = await Promise.all([sb.from('scenario_pas').select('*').eq('scenario_id', sid).order('h'),
+                             sb.from('scenario_evenements').select('*').eq('scenario_id', sid).order('h'),
+                             sb.from('scenario_attendus').select('*').eq('scenario_id', sid).order('h')]);
+  PAS = r[0].data || []; EVTS = r[1].data || []; ATT = r[2].data || [];
+  SESSION = id; montrer('ecConsole');
+  await rafraichir();
+  minuteur = setInterval(rafraichir, 4000);
+}
+async function rafraichir() {
+  if (!SESSION) return;
+  var r = await sb.rpc('animateur_etat', {p_session: SESSION});
+  if (r.error) { $('cStatut').innerHTML = '<span class="pastille" style="background:#922b21">' + esc(erreurTexte(r.error)) + '</span>'; return; }
+  ETAT = r.data; dessiner();
+}
+async function horloge(action, valeur) {
+  var r = await sb.rpc('animateur_horloge', {p_session: SESSION, p_action: action, p_valeur: valeur == null ? null : valeur});
+  if (r.error) return alert(erreurTexte(r.error));
+  ETAT = r.data; dessiner();
+}
+$('btMoins').onclick = function () { horloge('decaler', -1); };
+$('btPlus').onclick = function () { horloge('decaler', 1); };
+$('btDemarrer').onclick = function () { horloge('demarrer'); };
+$('btLecture').onclick = function () { horloge(ETAT.session.lecture ? 'pause' : 'lecture'); };
+$('cVitesse').onchange = function () { horloge('vitesse', +$('cVitesse').value); };
+$('btAller').onclick = function () { var v = parseFloat(String($('cAller').value).replace(',', '.')); if (!isNaN(v)) horloge('aller', v); };
+$('btTerminer').onclick = function () { if (confirm('Terminer l\'exercice ? L\'horloge s\'arrête et le joueur est prévenu dans QGIS. La session reste consultable pour le bilan ; pour un nouvel exercice, créez une nouvelle session.')) horloge('terminer'); };
+
+function dessiner() {
+  var E = ETAT, s = E.session, sc = E.scenario, h = Number(E.h);
+  $('cScen').textContent = sc.nom; $('cCode').textContent = s.code; $('cJoueur').textContent = s.joueur || '—';
+  var coul = {'préparation': '#3f5f86', 'en cours': '#c0392b', 'terminée': '#1E8449'}[s.statut];
+  $('cStatut').innerHTML = '<span class="pastille" style="background:' + coul + '"><i></i>' + (s.statut === 'en cours' ? 'EXERCICE EN COURS' + (s.lecture ? '' : ' · EN PAUSE') : s.statut.toUpperCase()) + '</span>';
+  var hs = heureSim(h);
+  $('cHeure').textContent = hs.h; $('cJour').textContent = hs.j;
+  $('cRel').textContent = 'H + ' + fr(h, h % 1 ? 1 : 0) + ' sur ' + sc.duree_h + ' h';
+  $('btDemarrer').classList.toggle('cache', s.statut !== 'préparation');
+  $('btLecture').disabled = s.statut !== 'en cours';
+  ['btMoins', 'btPlus', 'btAller', 'btLibre', 'btTerminer'].forEach(function (b) { $(b).disabled = s.statut === 'terminée'; });
+  $('btLecture').textContent = s.lecture ? '❚❚ Pause' : '▶ Lecture';
+  $('btLecture').className = 'bt' + (s.lecture ? ' m' : '');
+  if (document.activeElement !== $('cVitesse')) remplirRythmes($('cVitesse'), Number(s.vitesse_min));
+  graphe(h); valeurs(E); evenements(E, h); joueur(E, h);
+}
+
+function graphe(h) {
+  if (!PAS.length) { $('cGraphe').innerHTML = ''; return; }
+  var W = 400, H = 200, x0 = 34, x1 = W - 8, y0 = 178, y1 = 28, D = ETAT.scenario.duree_h;
+  var cles = Object.keys(PAS[0].q), qmax = 0;
+  PAS.forEach(function (p) { cles.forEach(function (k) { if (k === 'V301502002' || k === 'V301501002') qmax = Math.max(qmax, p.q[k] / 1000); }); });
+  if (!qmax) PAS.forEach(function (p) { cles.forEach(function (k) { qmax = Math.max(qmax, p.q[k] / 1000); }); });
+  qmax = Math.ceil(qmax * 1.12 / 10) * 10 || 10;
+  var X = function (t) { return x0 + t * (x1 - x0) / D; }, Y = function (q) { return y0 - q * (y0 - y1) / qmax; };
+  var g = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="display:block;width:100%;height:auto" role="img" aria-label="Hydrogramme du scénario avec la pluie horaire et le curseur de l\'heure simulée">';
+  for (var k = 0; k <= 4; k++) { var q = qmax * k / 4, y = Y(q).toFixed(1); g += '<path d="M' + x0 + ' ' + y + 'H' + x1 + '" stroke="#e6eef7"/><text x="' + (x0 - 4) + '" y="' + (+y + 3) + '" text-anchor="end" font-size="9" fill="#3f5f86">' + Math.round(q) + '</text>'; }
+  [68, 109, 141].forEach(function (q) { if (q < qmax) { var y = Y(q).toFixed(1); g += '<path d="M' + x0 + ' ' + y + 'H' + x1 + '" stroke="#c0392b" stroke-dasharray="4 3" opacity=".7"/><text x="' + (x1 - 2) + '" y="' + (y - 3) + '" text-anchor="end" font-size="9" font-weight="700" fill="#c0392b">' + q + ' m³/s</text>'; } });
+  var pmax = Math.max.apply(null, PAS.map(function (p) { return Number(p.pluie_1h); })) || 1;
+  PAS.forEach(function (p) { if (p.pluie_1h > 0) g += '<rect x="' + (X(p.h) - 3).toFixed(1) + '" y="' + y1 + '" width="6" height="' + (p.pluie_1h / pmax * 34).toFixed(1) + '" fill="#9cc0e6"/>'; });
+  cles.sort(function (a, b) { return (a === 'V301502002') - (b === 'V301502002'); }).forEach(function (k) {
+    var pts = PAS.map(function (p) { return X(p.h).toFixed(1) + ',' + Y(p.q[k] / 1000).toFixed(1); }).join(' ');
+    g += '<polyline points="' + pts + '" fill="none" stroke="' + (COUL[k] || '#888') + '" stroke-width="' + (k === 'V301502002' ? 2.6 : 1.6) + '"/>';
+  });
+  for (var t = 0; t <= D; t += 6) g += '<text x="' + X(t).toFixed(1) + '" y="' + (y0 + 14) + '" text-anchor="middle" font-size="9" fill="#3f5f86">H+' + t + '</text>';
+  g += '<path d="M' + X(h).toFixed(1) + ' ' + (y1 - 6) + 'V' + y0 + '" stroke="#0b3a78" stroke-width="1.5"/>';
+  var vf = ETAT.valeurs && ETAT.valeurs.V301502002;
+  if (vf != null) g += '<circle cx="' + X(h).toFixed(1) + '" cy="' + Y(vf / 1000).toFixed(1) + '" r="4.5" fill="#0a6fcf" stroke="#fff" stroke-width="2"/>';
+  g += '<text x="' + x0 + '" y="12" font-size="9" fill="#3f5f86">m³/s · pluie horaire en haut (max ' + fr(pmax, 1) + ' mm)</text></svg>';
+  $('cGraphe').innerHTML = g;
+  $('cPeriode').textContent = heureSim(0).j.replace(/^\w+ /, '') + ' → H+' + D;
+  $('cLegende').innerHTML = cles.map(function (k) { return '<span><span style="width:14px;height:3px;background:' + (COUL[k] || '#888') + '"></span>' + esc(STATIONS[k] || k) + '</span>'; }).join('') + '<span><span style="width:10px;height:10px;background:#9cc0e6"></span>Pluie horaire</span>';
+}
+
+function valeurs(E) {
+  var v = E.valeurs || {}, p = E.pluie || {}, h = '';
+  ['V301502002', 'V301501002'].forEach(function (k) { if (v[k] != null) h += '<div><div class="t">' + STATIONS[k] + '</div><div class="v">' + fr(v[k] / 1000, 1) + ' <span style="font-size:13px">m³/s</span></div></div>'; });
+  Object.keys(v).forEach(function (k) { if (k !== 'V301502002' && k !== 'V301501002') h += '<div><div class="t">' + esc(STATIONS[k] || k) + '</div><div class="v" style="font-size:17px">' + fr(v[k] / 1000, 2) + ' m³/s</div></div>'; });
+  h += '<div><div class="t">Pluie sur 1 h</div><div class="v" style="font-size:17px">' + fr(p.p1h, 1) + ' mm</div></div><div><div class="t">Cumul 24 h · prévu 6 h</div><div class="v" style="font-size:17px">' + fr(p.p24h, 0) + ' · ' + fr(p.prev6h, 0) + ' mm</div></div>';
+  h += '<div style="grid-column:1/-1;font-size:11.5px;color:var(--gris);border-top:1px solid #e6eef7;padding-top:8px">Ces valeurs sont transmises au poste du joueur et écrites dans l\'outil de crise comme des mesures « EXERCICE », effacées à la fin.</div>';
+  $('cValeurs').innerHTML = h;
+}
+
+function evenements(E, h) {
+  var inj = {}; (E.injections || []).forEach(function (i) { if (i.evenement_id) inj[i.evenement_id] = i; });
+  var libres = (E.injections || []).filter(function (i) { return !i.evenement_id; });
+  var html = '', n = 0;
+  EVTS.forEach(function (e) {
+    var i = inj[e.id], etat, ec, cl = '';
+    if (i && i.ignore) { etat = 'Ignoré'; ec = '#9aa9ba'; }
+    else if (i && e.type === 'consigne') { etat = 'À faire maintenant'; ec = '#b5560a'; cl = (h - e.h < 1 ? ' now' : ''); n++; }
+    else if (i && i.recu_le) { etat = 'Reçu dans QGIS à ' + hReel(i.recu_le); ec = '#2e7d4f'; n++; }
+    else if (i) { etat = 'Envoyé, en attente de QGIS'; ec = '#0a6fcf'; cl = ' now'; n++; }
+    else { var dh = e.h - h; etat = 'Dans ' + (dh < 1 ? Math.round(dh * 60) + ' min' : fr(dh, 1) + ' h') + ' (simulées)'; ec = '#5c6f85'; cl = ' futur'; }
+    html += '<div class="ev' + cl + '"><span class="hh">' + heureSim(e.h).h + '</span><div class="c"><b>' + esc(e.titre) + '</b><span class="canal">' + esc(e.canal || '') + '</span>'
+      + (e.consigne ? '<div class="consigne">' + esc(e.consigne) + '</div>' : '')
+      + (!i && E.session.statut !== 'terminée' ? '<div style="margin-top:5px;display:flex;gap:6px"><button class="bt s" onclick="injecter(' + e.id + ')">Injecter maintenant</button><button class="bt s" onclick="ignorer(' + e.id + ')">Ignorer</button></div>' : '')
+      + '</div><span class="etat" style="color:' + ec + '">' + etat + '</span></div>';
+  });
+  libres.forEach(function (i) {
+    n++;
+    html += '<div class="ev"><span class="hh">' + heureSim(Number(i.h)).h + '</span><div class="c"><b>' + esc(i.titre || i.type) + '</b><span class="canal">Événement libre (' + esc(i.type) + ')</span>'
+      + (i.consigne ? '<div class="consigne">' + esc(i.consigne) + '</div>' : '') + '</div><span class="etat" style="color:' + (i.recu_le ? '#2e7d4f' : i.type === 'consigne' ? '#b5560a' : '#0a6fcf') + '">'
+      + (i.type === 'consigne' ? 'Note animateur' : i.recu_le ? 'Reçu à ' + hReel(i.recu_le) : 'En attente de QGIS') + '</span></div>';
+  });
+  $('cEvts').innerHTML = html;
+  $('cNbEv').textContent = n + ' injecté(s) sur ' + (EVTS.length + libres.length);
+}
+async function injecter(id) { var r = await sb.rpc('animateur_injecter', {p_session: SESSION, p_evenement: id}); if (r.error) alert(erreurTexte(r.error)); rafraichir(); }
+async function ignorer(id) { var r = await sb.rpc('animateur_ignorer', {p_session: SESSION, p_evenement: id}); if (r.error) alert(erreurTexte(r.error)); rafraichir(); }
+
+/* ------------------------------------------------------------ joueur et attendus */
+function evalAttendus(E, h) {
+  var ev = E.joueur_evenements || [], ctrl = E.session.controles || {}, nbRet = 0, nbManq = 0;
+  var monte = null;   // première montée au-dessus de la situation normale : seul un passage en NORMAL ultérieur vaut « retour à la normale »
+  ev.forEach(function (e) { if (monte === null && e.type === 'niveau' && NIV[(e.donnees || {}).niveau] && NIV[e.donnees.niveau].o > 0) monte = Number(e.h_simulee); });
+  var lignes = ATT.map(function (a) {
+    var t = Number(a.h), tol = Number(a.tolerance_h), trouve = null;
+    if (a.test === 'niveau_a') {   // niveau tenu à l'heure t (ex. pendant une décrue apparente)
+      if (h >= t) {
+        var nv = ev.filter(function (e) { return e.type === 'niveau' && Number(e.h_simulee) <= t + 0.01; }).sort(function (x, y) { return Number(x.h_simulee) - Number(y.h_simulee); });
+        var dn = nv.length ? (nv[nv.length - 1].donnees || {}).niveau : null;
+        if (dn && NIV[dn] && NIV[a.valeur] && NIV[dn].o >= NIV[a.valeur].o) trouve = {h_simulee: t};
+      }
+    }
+    else if (a.test === 'manuel') { var m = ctrl[a.id]; if (m && m.ok) trouve = {h_simulee: m.h, manuel: true}; }
+    else trouve = ev.filter(function (e) {
+      var d = e.donnees || {};
+      if (a.test === 'niveau' && a.valeur === 'NORMAL') return e.type === 'niveau' && d.niveau === 'NORMAL' && monte !== null && Number(e.h_simulee) >= monte;
+      if (a.test === 'episode') return e.type === 'episode' && d.etat === 'ouvert';
+      if (a.test === 'niveau') return e.type === 'niveau' && (a.valeur === 'NORMAL' ? d.niveau === 'NORMAL' : NIV[d.niveau] && NIV[a.valeur] && NIV[d.niveau].o >= NIV[a.valeur].o);
+      if (a.test === 'action') return e.type === 'action' && d.fait !== false && String(d.libelle || '').toLowerCase().indexOf(String(a.valeur).toLowerCase()) >= 0;
+      if (a.test === 'scenario') return e.type === 'scenario' && String(d.q) === String(a.valeur);
+      if (a.test === 'vigie') { var v = String(a.valeur).split('|'); return e.type === 'vigie' && String(d.point) === v[0] && (!v[1] || d.statut === v[1]); }
+      return false;
+    })[0] || null;
+    var st, sc;
+    if (trouve) {
+      var he = Number(trouve.h_simulee), late = he > t + tol;
+      if (late) nbRet++;
+      st = (trouve.manuel ? 'Constaté' : 'Fait') + ' à ' + heureSim(he).h + (late ? ' (retard ' + fr(he - t, 1) + ' h)' : he < t - tol ? ' (anticipé)' : ''); sc = late ? '#b5560a' : '#2e7d4f';
+    } else if (h > t + tol) { st = 'Non fait'; sc = '#c0392b'; nbManq++; }
+    else if (h >= t) { st = 'Attendu maintenant'; sc = '#0a6fcf'; }
+    else { st = 'À venir'; sc = '#5c6f85'; }
+    return {a: a, st: st, sc: sc, fait: !!trouve};
+  });
+  return {lignes: lignes, nbRet: nbRet, nbManq: nbManq};
+}
+function niveauAttendu(h) {
+  var n = null; ATT.forEach(function (a) {
+    if (a.test !== 'niveau' || Number(a.h) > h) return;
+    if (a.valeur === 'NORMAL' || !n || n === 'NORMAL' || (NIV[a.valeur] && NIV[n] && NIV[a.valeur].o > NIV[n].o)) n = a.valeur;
+  });
+  if (!n && ATT.some(function (a) { return a.test === 'episode' && Number(a.h) <= h; })) n = 'NORMAL';
+  return n;
+}
+function joueur(E, h) {
+  var j = E.joueur || {}, att = niveauAttendu(h), jou = j.niveau || null;
+  $('cAtt').innerHTML = badge(att) + (att && NIV[att] ? ' <span style="font-size:12px;font-weight:700">' + NIV[att].l + '</span>' : '');
+  $('cJou').innerHTML = badge(jou) + (jou && NIV[jou] ? ' <span style="font-size:12px;font-weight:700">' + NIV[jou].l + '</span>' : '') + (j.q_scenario ? ' <span style="font-size:12px">· zone ' + j.q_scenario + ' m³/s</span>' : '');
+  var ec = '', ecc = '#2e7d4f', diff = (jou && att && NIV[jou] && NIV[att]) ? NIV[jou].o - NIV[att].o : null;
+  if (att && !jou) { ec = 'pas d\'épisode ouvert'; ecc = '#c0392b'; }
+  else if (diff != null) { ec = diff < 0 ? 'en dessous de l\'attendu' : diff > 0 ? 'au-dessus de l\'attendu' : 'conforme'; ecc = diff < 0 ? '#c0392b' : diff > 0 ? '#b5560a' : '#2e7d4f'; }
+  $('cEcart').textContent = ec; $('cEcart').style.color = ecc;
+  var vu = E.session.joueur_vu_le, age = vu ? (new Date(E.maintenant) - new Date(vu)) / 1000 : null;
+  $('cConnexionQgis').innerHTML = age == null ? '<span style="color:#c0392b">QGIS du joueur pas encore connecté</span>'
+    : age < 90 ? '<span style="color:#2e7d4f">QGIS connecté' + (E.session.joueur_qgis ? ' (' + esc(E.session.joueur_qgis) + ')' : '') + '</span>' : '<span style="color:#b5560a">QGIS silencieux depuis ' + Math.round(age / 60) + ' min</span>';
+  var R = evalAttendus(E, h);
+  $('cAttendus').innerHTML = R.lignes.map(function (l) {
+    var a = l.a, man = a.test === 'manuel';
+    return '<tr' + (Number(a.h) > h ? ' style="opacity:.6"' : '') + '><td style="white-space:nowrap;font-weight:900">' + heureSim(Number(a.h)).h + '</td><td>'
+      + (man ? '<label style="display:flex;gap:6px;margin:0;color:inherit;font-weight:600"><input type="checkbox"' + (l.fait ? ' checked' : '') + ' onchange="constater(' + a.id + ',this.checked)">' + esc(a.libelle) + ' <i style="color:var(--gris)">(à constater)</i></label>' : esc(a.libelle))
+      + '</td><td style="font-weight:800;color:' + l.sc + '">' + l.st + '</td></tr>';
+  }).join('');
+  $('cEcarts').innerHTML = '<b>Écarts à ' + heureSim(h).h + ' :</b> ' + R.nbRet + ' attendu(s) en retard · ' + R.nbManq + ' non fait(s) · niveau ' + (ec || '—');
+  var evs = (E.joueur_evenements || []).slice().reverse();
+  $('cJournal').innerHTML = evs.length ? evs.map(function (e) { return '<div class="jr"><b>' + heureSim(Number(e.h_simulee)).h + '</b><span>' + esc(texteEvenement(e)) + '</span></div>'; }).join('')
+    : '<div style="color:var(--gris)">Rien pour l\'instant.</div>';
+}
+function texteEvenement(e) {
+  var d = e.donnees || {};
+  switch (e.type) {
+    case 'episode': return d.etat === 'ouvert' ? 'Ouvre l\'épisode « ' + (d.nom || '') + ' »' : 'Clôt l\'épisode';
+    case 'niveau': return 'Passe en ' + d.niveau + (d.motif ? ' – ' + d.motif : '') + (d.force ? ' (passage forcé)' : '');
+    case 'action': return (d.fait === false ? 'Décoche : ' : 'Coche : ') + d.libelle;
+    case 'scenario': return d.q ? 'Affiche la zone inondable ' + d.q + ' m³/s' : 'Masque la zone inondable';
+    case 'journal': return 'Journal : ' + (d.objet || '') + (d.provenance ? ' (' + d.provenance + ')' : '');
+    case 'vigie': return 'Vigie ' + (d.point || '') + ' : ' + (d.statut || '');
+    case 'releve': return 'Relevé saisi ' + (d.point || '') + ' : ' + fr(d.hauteur_m, 2) + ' m';
+    case 'ouvrage': return (d.type === 'clapet' ? 'Clapet ' : 'Batardeau ') + d.code + ' : ' + d.etat;
+    case 'signalement': return 'Signalement ' + (d.type || '') + ' : ' + (d.statut || '');
+    case 'fiche': return 'Édite une fiche de situation';
+    default: return e.type + ' ' + JSON.stringify(d);
+  }
+}
+async function constater(id, ok) {
+  var c = Object.assign({}, ETAT.session.controles || {}); c[id] = {ok: ok, h: Number(ETAT.h)};
+  var r = await sb.from('sessions').update({controles: c}).eq('id', SESSION);
+  if (r.error) alert(erreurTexte(r.error)); rafraichir();
+}
+
+/* ------------------------------------------------------------ événement libre */
+function champsLibre() {
+  var t = $('lType').value, h = '', pts = POINTS.map(function (p) { return '<option value="' + p[0] + '">' + esc(p[1]) + '</option>'; }).join('');
+  if (t === 'releve_vigie') h = '<label for="lPoint">Point</label><select id="lPoint">' + pts + '</select><div class="rang"><div><label for="lH">Hauteur (m)</label><input id="lH" type="text" placeholder="2,30"></div><div><label for="lTend">Tendance</label><select id="lTend"><option>montée</option><option>stable</option><option>baisse</option></select></div></div>';
+  if (t === 'presence_vigie') h = '<label for="lPoint">Point de la Vigie</label><select id="lPoint">' + pts + '</select><label for="lStat">Elle annonce</label><select id="lStat"><option value="en place">qu\'elle est en place</option><option value="indisponible">qu\'elle n\'est pas disponible</option></select>';
+  if (t === 'signalement') h = '<label for="lPoint">À proximité de</label><select id="lPoint">' + pts + '</select><div class="rang"><div><label for="lSType">Type</label><select id="lSType"><option>Embâcle sur pont</option><option>Arbre tombé</option><option>Clapet bloqué / fuyant</option><option>Débordement</option><option>Route inondée</option><option>Érosion de berge</option><option>Désordre sur digue</option><option>Ouvrage endommagé</option><option>Autre</option></select></div><div><label for="lGrav">Gravité</label><select id="lGrav"><option>danger</option><option>risque</option><option>gêne</option></select></div></div><label for="lTxt">Description</label><input id="lTxt" type="text">';
+  if (t === 'clapet') h = '<div class="rang"><div><label for="lCode">Clapet (code)</label><input id="lCode" type="text" placeholder="S6-Rj1"></div><div><label for="lEtat">État</label><select id="lEtat"><option>dysfonctionnement</option><option>suspect</option><option>OK</option></select></div></div>';
+  if (t === 'batardeau') h = '<div class="rang"><div><label for="lCode">Batardeau</label><select id="lCode"><option value="BAT-S1">Permanent S1 – Ratier (Tassin)</option><option value="BAT-S7">Amovible – passerelle du parc (Oullins)</option></select></div><div><label for="lEtat">État</label><select id="lEtat"><option>posé</option><option>présence vérifiée</option><option>non posé</option><option>problème</option></select></div></div>';
+  if (t === 'message') h = '<label for="lDe">De</label><input id="lDe" type="text" placeholder="Mairie de…"><label for="lTxt">Message</label><textarea id="lTxt" rows="3"></textarea>';
+  if (t === 'consigne') h = '<label for="lTxt">Consigne</label><textarea id="lTxt" rows="3"></textarea>';
+  $('lChamps').innerHTML = h;
+}
+$('lType').onchange = champsLibre;
+$('btLibre').onclick = function () { champsLibre(); $('lTitre').value = ''; message('lMsg', ''); $('dLibre').showModal(); };
+$('lAnnuler').onclick = function () { $('dLibre').close(); };
+$('lValider').onclick = async function () {
+  var t = $('lType').value, d = {}, titre = $('lTitre').value.trim(), cons = null, v = function (id) { return $(id) ? $(id).value.trim() : ''; };
+  var nomPt = function () { var p = POINTS.filter(function (x) { return x[0] === v('lPoint'); })[0]; return p ? p[1] : v('lPoint'); };
+  if (t === 'releve_vigie') { var hm = parseFloat(v('lH').replace(',', '.')); if (isNaN(hm)) return message('lMsg', 'Indiquez la hauteur.', 'err'); d = {point: v('lPoint'), hauteur_m: hm, tendance: v('lTend'), commentaire: ''}; titre = titre || 'Vigie ' + nomPt() + ' : ' + fr(hm, 2) + ' m'; }
+  if (t === 'presence_vigie') { d = {point: v('lPoint'), statut: v('lStat')}; titre = titre || 'Appel de la Vigie ' + nomPt() + ' : ' + v('lStat'); }
+  if (t === 'signalement') { d = {point: v('lPoint'), type: v('lSType'), gravite: v('lGrav'), description: v('lTxt')}; titre = titre || v('lSType') + ' – ' + nomPt(); }
+  if (t === 'clapet') { if (!v('lCode')) return message('lMsg', 'Indiquez le code du clapet.', 'err'); d = {code: v('lCode'), etat: v('lEtat')}; titre = titre || 'Clapet ' + v('lCode') + ' : ' + v('lEtat'); }
+  if (t === 'batardeau') { d = {code: v('lCode'), etat: v('lEtat')}; titre = titre || 'Batardeau ' + v('lCode') + ' : ' + v('lEtat'); }
+  if (t === 'message') { if (!v('lTxt')) return message('lMsg', 'Écrivez le message.', 'err'); d = {de: v('lDe'), texte: v('lTxt')}; titre = titre || 'Message de ' + (v('lDe') || '?'); }
+  if (t === 'consigne') { cons = v('lTxt'); titre = titre || 'Note'; }
+  var r = await sb.rpc('animateur_injecter', {p_session: SESSION, p_evenement: null, p_type: t, p_titre: titre, p_donnees: d, p_consigne: cons});
+  if (r.error) return message('lMsg', erreurTexte(r.error), 'err');
+  $('dLibre').close(); rafraichir();
+};
+
+/* ------------------------------------------------------------ notes, bilan */
+$('btNote').onclick = function () { $('nTexte').value = ETAT.session.note || ''; $('dNote').showModal(); };
+$('nFermer').onclick = function () { $('dNote').close(); };
+$('nEnregistrer').onclick = async function () {
+  var r = await sb.from('sessions').update({note: $('nTexte').value}).eq('id', SESSION);
+  if (r.error) return alert(erreurTexte(r.error));
+  $('dNote').close(); rafraichir();
+};
+function construireBilan(E, h, R) {
+  var s = E.session, faits = R.lignes.filter(function (l) { return l.fait; }).length, tot = R.lignes.length;
+  var aHeure = faits - R.nbRet, taux = tot ? Math.round(100 * faits / tot) : 100;
+  var ton = taux >= 90 && !R.nbManq ? ['#1e8449', 'Très bonne application de la procédure'] : taux >= 60 ? ['#e67e22', 'Procédure partiellement appliquée'] : ['#c0392b', 'Procédure insuffisamment appliquée'];
+  var hs = heureSim(h), injs = (E.injections || []).filter(function (i) { return !i.ignore; }), evs = E.joueur_evenements || [];
+  function kpi(l, v, sub, c) { return '<div class="bk"' + (c ? ' style="background:' + c + '"' : '') + '><div class="l">' + l + '</div><div class="v">' + v + '</div><div class="s">' + sub + '</div></div>'; }
+  function pill(t, c, f) { return '<span class="bp" style="background:' + c + ';color:' + (f || '#fff') + '">' + t + '</span>'; }
+  function statut(l) {
+    if (l.st.indexOf('Non fait') === 0) return pill('Non fait', '#fadbd8', '#922b21');
+    if (l.st.indexOf('retard') >= 0) return pill(esc(l.st), '#fdebd0', '#a04000');
+    if (l.fait) return pill(esc(l.st), '#d5f5e3', '#1e8449');
+    if (l.st.indexOf('maintenant') >= 0) return pill('Attendu maintenant', '#e8f2fc', '#0a6fcf');
+    return pill(esc(l.st), '#eef2f6', '#5d6d7e');
+  }
+  function coulEv(e) { var d = e.donnees || {}; return e.type === 'niveau' ? ((NIV[d.niveau] || {}).c || '#e67e22') : e.type === 'episode' ? '#0b3a78' : e.type === 'scenario' ? '#0a6fcf' : e.type === 'vigie' ? '#d4ac0d' : e.type === 'action' ? '#1e8449' : '#4a6a8f'; }
+  var b = '<div class="bent"><img src="logo_sagyrc.png" alt="SAGYRC"><div class="t"><h1>Bilan d\'exercice de crue <span class="bexo">EXERCICE</span></h1>'
+    + '<div class="s1">' + esc(E.scenario.nom) + '</div><div class="s2">Session ' + esc(s.code) + ' · document édité le ' + new Date().toLocaleString('fr-FR') + '</div></div></div>'
+    + '<div class="bhero" style="background:' + ton[0] + '"><div class="c">' + taux + '<small>%</small></div><div><div class="k">RÉSULTAT DE L\'EXERCICE</div><div class="lb">' + ton[1] + '</div>'
+    + '<div class="d">Joueur : ' + esc(s.joueur || '—') + ' · animateur : ' + esc(s.animateur || '—') + '<br>Démarré le ' + (s.demarre_le ? new Date(s.demarre_le).toLocaleString('fr-FR') : '—')
+    + (s.termine_le ? ', terminé le ' + new Date(s.termine_le).toLocaleString('fr-FR') : '') + '</div></div>'
+    + '<div class="r"><div><small>HEURE SIMULÉE ATTEINTE</small><b>' + hs.h + '</b><small>' + hs.j + ' · H+' + fr(h, 1) + '</small></div></div></div>'
+    + '<div class="bks">' + kpi('Attendus réalisés', faits + '<small> / ' + tot + '</small>', taux + ' % de la procédure', '#e8f2fc')
+    + kpi('À l\'heure', String(aHeure), 'dans la tolérance prévue', '#e3f4ea') + kpi('En retard', String(R.nbRet), 'réalisés hors tolérance', R.nbRet ? '#fdebd0' : '#e8f2fc')
+    + kpi('Non faits', String(R.nbManq), 'échéance dépassée', R.nbManq ? '#fadbd8' : '#e3f4ea') + '</div>'
+    + '<div class="bbar"><i style="width:' + (tot ? 100 * aHeure / tot : 0) + '%;background:#1e8449"></i><i style="width:' + (tot ? 100 * R.nbRet / tot : 0) + '%;background:#e67e22"></i>'
+    + '<i style="width:' + (tot ? 100 * R.nbManq / tot : 0) + '%;background:#c0392b"></i></div>'
+    + '<div class="bleg"><span><i style="background:#1e8449"></i>à l\'heure</span><span><i style="background:#e67e22"></i>en retard</span><span><i style="background:#c0392b"></i>non fait</span><span><i style="background:#e3edf7"></i>à venir</span></div>'
+    + '<div class="benc"><b>Comment lire ce bilan</b> : chaque attendu de la procédure a une heure simulée et une tolérance. Il est « fait » si le joueur l\'a réalisé dans ce délai, « en retard » au-delà, « non fait » si l\'échéance est passée sans action. '
+    + 'La chronologie du joueur et les événements injectés permettent de comprendre les écarts lors du débriefing.</div>'
+    + '<div class="bsec"><span>1</span><h2>Attendus de la procédure</h2></div>'
+    + '<table class="btb"><tr><th>Heure simulée</th><th>Attendu</th><th>Résultat</th></tr>'
+    + R.lignes.map(function (l, i) { return '<tr' + (i % 2 ? ' class="z"' : '') + '><td><b>' + heureSim(Number(l.a.h)).h + '</b></td><td>' + esc(l.a.libelle) + '</td><td>' + statut(l) + '</td></tr>'; }).join('') + '</table>'
+    + '<div class="bsec"><span>2</span><h2>Chronologie du joueur</h2></div>'
+    + (evs.length ? '<div class="bbloc">' + evs.map(function (e) { return '<div class="bev"><span class="h">' + heureSim(Number(e.h_simulee)).h + '</span><span class="d"><i style="background:' + coulEv(e) + '"></i></span><span class="o">' + esc(texteEvenement(e)) + '</span></div>'; }).join('') + '</div>'
+       : '<div class="benc ne">Aucune action enregistrée pour le joueur.</div>')
+    + '<div class="bsec"><span>3</span><h2>Événements injectés par l\'animateur</h2></div>'
+    + (injs.length ? '<table class="btb"><tr><th>Heure simulée</th><th>Événement</th><th>Reçu par le joueur</th></tr>' + injs.map(function (i, k) {
+        return '<tr' + (k % 2 ? ' class="z"' : '') + '><td><b>' + heureSim(Number(i.h)).h + '</b></td><td>' + esc(i.titre || i.type) + '</td><td>'
+          + (i.type === 'consigne' ? pill('consigne', '#eef2f6', '#5d6d7e') : i.recu_le ? pill('reçu à ' + hReel(i.recu_le), '#d5f5e3', '#1e8449') : pill('non reçu', '#fadbd8', '#922b21')) + '</td></tr>'; }).join('') + '</table>'
+       : '<div class="benc ne">Aucun événement injecté.</div>')
+    + '<div class="bsec"><span>4</span><h2>Notes de débriefing</h2></div>'
+    + '<div class="benc" style="white-space:pre-wrap">' + esc(s.note || 'Aucune note saisie.') + '</div>'
+    + '<div class="bsrc">SAGYRC · Outil d\'exercice de gestion de crise – Yzeron. Exercice fictif : les données de ce document sont simulées.</div>';
+  return b;
+}
+$('btBilan').onclick = function () {
+  var E = ETAT, h = Number(E.h), R = evalAttendus(E, h);
+  $('bilan').innerHTML = construireBilan(E, h, R); window.print();
+};
+
+
+demarrage();
+(function () {   // retour du créateur de scénarios : le scénario enregistré est présélectionné
+  var id = new URLSearchParams(location.search).get('scenario'), n = 0; if (!id) return;
+  var t = setInterval(function () {
+    var o = $('nvScen') && $('nvScen').querySelector('option[value="' + id + '"]');
+    if (o) { clearInterval(t); $('nvScen').value = id; if ($('nvScen').onchange) $('nvScen').onchange(); message('msgSessions', 'Scénario généré sélectionné : indiquez le joueur et créez la session.', 'ok'); }
+    if (++n > 60) clearInterval(t);
+  }, 250);
+})();
+</script>
+</body>
+</html>

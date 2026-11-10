@@ -2,6 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0a6fcf">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -489,7 +490,7 @@ $("btCreer").onclick = function () {
   var e = $("email").value.trim(), m = $("mdp").value;
   if (!e || m.length < 8) return msg("msgConnexion", "Saisissez votre adresse e-mail professionnelle et choisissez un mot de passe d'au moins 8 caractères, puis touchez à nouveau « Première connexion ».", "info");
   sb.auth.signUp({email: e, password: m, options: {emailRedirectTo: location.origin + location.pathname}}).then(function (r) {
-    if (r.error) return msg("msgConnexion", r.error.message, "err");
+    if (r.error) return msg("msgConnexion", /database error|saving new user/i.test(r.error.message) ? "Adresse non autorisée : le SAGYRC doit d'abord inscrire votre adresse dans la liste des agents." : r.error.message, "err");
     if (r.data.session) return demarrer(r.data.session);
     msg("msgConnexion", "Compte créé. Ouvrez le lien de confirmation reçu par e-mail, puis connectez-vous.", "ok");
   });
