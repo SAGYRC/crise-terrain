@@ -305,7 +305,7 @@ nav button.alerte .pastille{display:block}
     <div class="resume" id="alResume"></div>
     <h3>Signalements en cours</h3>
     <div id="alSig" class="ecran"></div>
-    <h3>Clapets anti-retour en dysfonctionnement</h3>
+    <h3>Clapets anti-retour en anomalie</h3>
     <div id="alClap" class="ecran"></div>
     <h3>Bâtiments inondés et routes coupées potentiels par commune</h3>
     <p class="note" id="alScen" style="margin-top:-4px"></p>
@@ -728,7 +728,7 @@ function afficherAlertes() {
   var voies = {}; ((etat.routes && etat.routes.features) || []).forEach(function (f) { voies[(f.properties.commune || "") + "|" + nomRoute(f.properties)] = 1; });
   var nbR = Object.keys(voies).length;
   $("alResume").innerHTML = '<div class="' + (sigs.length ? "rouge" : "") + '"><b>' + sigs.length + "</b><span>signalement(s)</span></div>" +
-    '<div class="' + (clap.length ? "rouge" : "") + '"><b>' + clap.length + "</b><span>clapet(s) HS</span></div>" +
+    '<div class="' + (clap.length ? "rouge" : "") + '"><b>' + clap.length + "</b><span>clapet(s) en anomalie</span></div>" +
     '<div class="' + (nbR ? "rouge" : "") + '"><b>' + nbR + "</b><span>voie(s) coupée(s)</span></div>";
   // signalements
   sigs.sort(function (a, b) { return String(b.heure).localeCompare(String(a.heure)); });
@@ -742,14 +742,18 @@ function afficherAlertes() {
   }).join("") : '<p class="vide">Aucun signalement en cours.</p>';
   // clapets
   $("alClap").innerHTML = clap.length ? clap.map(function (c) {
+    if (c.etat === "suspect") return '<div class="sig"><div class="haut"><b>Clapet ' + esc(c.code) + "</b><small>" + esc(c.commune || "") + "</small></div>" +
+      '<p>Clapet <b>suspect</b> : fonctionnement à vérifier sur place. Pas de zone de refoulement affichée tant que le dysfonctionnement n\'est pas confirmé.</p>' +
+      '<div class="actions"><button class="btn ghost petit" data-clapet="' + esc(c.code) + '">Carte ›</button><button class="btn petit" data-sig-clapet="' + esc(c.code) + '">Signaler un dysfonctionnement</button></div></div>';
     return '<div class="sig danger"><div class="haut"><b>Clapet ' + esc(c.code) + "</b><small>" + esc(c.commune || "") + "</small></div>" +
       "<p>Refoulement possible : " + nb(c.batiments || 0, 0) + " bâtiment(s)" + (c.logements ? " (" + esc(c.logements) + " logement(s))" : "") +
       ((c.routes || []).length ? " · " + c.routes.length + " voie(s) : " + c.routes.slice(0, 6).map(esc).join(", ") + (c.routes.length > 6 ? "…" : "") : "") + "</p>" +
       '<div class="actions"><button class="btn ghost petit" data-aller="carte:zone">Voir la zone ›</button></div></div>';
-  }).join("") : '<p class="vide">Aucun clapet signalé en dysfonctionnement.</p>';
+  }).join("") : '<p class="vide">Aucun clapet signalé en anomalie.</p>';
+  var clapHS = clap.filter(function (c) { return c.etat !== "suspect"; });
   // communes
   $("alScen").textContent = (al.q ? "Scénario retenu par l'astreinte : crue de " + al.q + " m³/s (débit attendu)." : "Aucun scénario de crue retenu par l'astreinte.") +
-    (clap.length ? " Inclut le refoulement derrière " + clap.length + " clapet(s) en dysfonctionnement." : "");
+    (clapHS.length ? " Inclut le refoulement derrière " + clapHS.length + " clapet(s) en dysfonctionnement." : "");
   var q = "", feats = (etat.routes && etat.routes.features) || [], g = {};
   feats.forEach(function (f, i) {
     var c = f.properties.commune || "Autre", n = nomRoute(f.properties);
@@ -767,6 +771,13 @@ function afficherAlertes() {
       (noms.length ? "<ul>" + noms.map(function (n) { return '<li><button data-routes="' + g[c][n].join(",") + '">' + esc(n) + "<em>Carte ›</em></button></li>"; }).join("") + "</ul>" : "") + "</div>";
   }).join("") : '<p class="vide">' + (q ? "Aucun résultat." : (al.q || clap.length) ? "Aucune route coupée ni bâtiment inondé." : "Rien à signaler.") + "</p>";
 }
+$("alClap").onclick = function (ev) {
+  var s = ev.target.closest("[data-sig-clapet]");
+  if (s) { aller("signaler"); $("sType").value = "clapet"; $("sType").onchange(); remplirClapets(s.getAttribute("data-sig-clapet")); return; }
+  var b = ev.target.closest("[data-clapet]"); if (!b) return;
+  var o = (etat.ouvrages || []).filter(function (x) { return x.t === "clapet" && x.code === b.getAttribute("data-clapet"); })[0]; if (!o || !o.pos) return;
+  aller("carte"); setTimeout(function () { etat.carte.setView(o.pos, 17); fiche("Clapet anti-retour", o.code, [esc(o.commune || ""), "État : <b style=\"display:inline;font-size:15px\">" + esc(o.etat) + "</b>"]); }, 120);
+};
 $("alSig").onclick = function (ev) {
   var v = ev.target.closest("[data-voir]"), r = ev.target.closest("[data-resoudre]");
   if (v) {
@@ -891,7 +902,7 @@ function dessinerCarte() {
     if (o.t === "clapet") {
       var defa = o.etat && !/^ok$/i.test(o.etat) && !/non renseign/i.test(o.etat);
       if (!o.zone && !defa) return;
-      rond(o.pos, defa ? "#c0392b" : "#7f8c8d", defa ? 7 : 5).on("click", function (e) { L.DomEvent.stop(e);
+      rond(o.pos, defa ? (/suspect/i.test(o.etat) ? "#e67e22" : "#c0392b") : "#7f8c8d", defa ? 7 : 5).on("click", function (e) { L.DomEvent.stop(e);
         fiche("Clapet anti-retour", o.code, ['<button class="btn petit" style="margin-top:4px" data-sig-clapet="' + esc(o.code) + '">Signaler un dysfonctionnement</button>', esc(o.commune || "") + (o.riviere ? " · " + esc(o.riviere) : ""), "État : <b style=\"display:inline;font-size:15px\">" + esc(o.etat) + "</b>", o.q_ref ? "Concerné à partir de " + o.q_ref + " m³/s" : ""]); }).addTo(C.ouvrages);
     } else if (o.t === "batardeau") {
       L.marker(o.pos, {icon: L.divIcon({className: "", iconSize: [22, 22], html: '<div style="width:20px;height:20px;border-radius:4px;background:#6c3483;border:2px solid #fff;color:#fff;font:900 12px/16px Nunito;text-align:center;box-shadow:0 0 2px #0006">B</div>'})})
