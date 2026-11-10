@@ -267,7 +267,7 @@ nav button.alerte .pastille{display:block}
       </div>
     </div>
     <div id="blocNouveau" class="ecran cache">
-      <label for="mdp1">Nouveau mot de passe <span class="aide">(8 caractères minimum)</span></label><input id="mdp1" type="password" autocomplete="new-password">
+      <label for="mdp1">Nouveau mot de passe <span class="aide">(10 caractères minimum, avec majuscule, minuscule, chiffre et symbole)</span></label><input id="mdp1" type="password" autocomplete="new-password">
       <button class="btn" id="btNouveau" type="button">Enregistrer le mot de passe</button>
     </div>
     <div id="msgConnexion"></div>
@@ -488,7 +488,7 @@ $("btConnexion").onclick = function () {
 $("mdp").addEventListener("keydown", function (ev) { if (ev.key === "Enter") $("btConnexion").click(); });
 $("btCreer").onclick = function () {
   var e = $("email").value.trim(), m = $("mdp").value;
-  if (!e || m.length < 8) return msg("msgConnexion", "Saisissez votre adresse e-mail professionnelle et choisissez un mot de passe d'au moins 8 caractères, puis touchez à nouveau « Première connexion ».", "info");
+  if (!e || !mdpOk(m)) return msg("msgConnexion", "Saisissez votre adresse e-mail professionnelle et choisissez un mot de passe d'au moins 10 caractères avec une majuscule, une minuscule, un chiffre et un symbole, puis touchez à nouveau « Première connexion ».", "info");
   sb.auth.signUp({email: e, password: m, options: {emailRedirectTo: location.origin + location.pathname}}).then(function (r) {
     if (r.error) return msg("msgConnexion", /database error|saving new user/i.test(r.error.message) ? "Adresse non autorisée : le SAGYRC doit d'abord inscrire votre adresse dans la liste des agents." : r.error.message, "err");
     if (r.data.session) return demarrer(r.data.session);
@@ -502,9 +502,10 @@ $("btOubli").onclick = function () {
     msg("msgConnexion", r.error ? r.error.message : "Un e-mail de réinitialisation vient d'être envoyé.", r.error ? "err" : "ok");
   });
 };
+function mdpOk(m) { return m.length >= 10 && /[a-z]/.test(m) && /[A-Z]/.test(m) && /[0-9]/.test(m) && /[^A-Za-z0-9]/.test(m); }
 $("btNouveau").onclick = function () {
   var m = $("mdp1").value;
-  if (m.length < 8) return msg("msgConnexion", "8 caractères minimum.", "err");
+  if (!mdpOk(m)) return msg("msgConnexion", "10 caractères minimum, avec une majuscule, une minuscule, un chiffre et un symbole.", "err");
   sb.auth.updateUser({password: m}).then(function (r) {
     if (r.error) return msg("msgConnexion", r.error.message, "err");
     sb.auth.getSession().then(function (s) { demarrer(s.data.session); });

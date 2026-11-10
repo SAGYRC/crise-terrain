@@ -391,8 +391,9 @@ $('btConnexion').onclick = async function () {
   if (r.error) return message('msgConnexion', 'Connexion refusée : ' + erreurTexte(r.error), 'err');
   message('msgConnexion', ''); demarrage();
 };
+function mdpOk(m) { return m.length >= 10 && /[a-z]/.test(m) && /[A-Z]/.test(m) && /[0-9]/.test(m) && /[^A-Za-z0-9]/.test(m); }
 $('btCreer').onclick = async function () {
-  if ($('mdp').value.length < 8) return message('msgConnexion', 'Choisissez un mot de passe d\'au moins 8 caractères.', 'err');
+  if (!mdpOk($('mdp').value)) return message('msgConnexion', 'Choisissez un mot de passe d\'au moins 10 caractères avec une majuscule, une minuscule, un chiffre et un symbole.', 'err');
   var r = await sb.auth.signUp({email: $('email').value.trim(), password: $('mdp').value});
   if (r.error) return message('msgConnexion', /database error|saving new user/i.test(erreurTexte(r.error)) ? 'Adresse non autorisée : le SAGYRC doit d\'abord inscrire votre adresse dans la liste des animateurs.' : 'Création refusée : ' + erreurTexte(r.error), 'err');
   message('msgConnexion', 'Compte créé. Ouvrez le lien de confirmation reçu par e-mail, puis revenez sur cette page pour vous connecter.', 'ok');
