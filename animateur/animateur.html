@@ -596,7 +596,7 @@ function evalAttendus(E, h) {
     else if (a.test === 'manuel') { var m = ctrl[a.id]; if (m && m.ok) trouve = {h_simulee: m.h, manuel: true}; }
     else trouve = ev.filter(function (e) {
       var d = e.donnees || {};
-      if (a.test === 'niveau' && a.valeur === 'NORMAL') return e.type === 'niveau' && d.niveau === 'NORMAL' && monte !== null && Number(e.h_simulee) >= monte;
+      if (a.test === 'niveau' && a.valeur === 'NORMAL') return e.type === 'niveau' && d.niveau === 'NORMAL' && monte !== null && Number(e.h_simulee) >= monte && !/^Ouverture de l'épisode/.test(d.motif || '');   // le NORMAL inscrit à l'ouverture n'est pas un retour à la normale
       if (a.test === 'episode') return e.type === 'episode' && d.etat === 'ouvert';
       if (a.test === 'niveau') return e.type === 'niveau' && (a.valeur === 'NORMAL' ? d.niveau === 'NORMAL' : NIV[d.niveau] && NIV[a.valeur] && NIV[d.niveau].o >= NIV[a.valeur].o);
       if (a.test === 'action' || a.test === 'action_f') return e.type === 'action' && d.fait !== false && String(d.libelle || '').toLowerCase().indexOf(String(a.valeur).toLowerCase()) >= 0;
