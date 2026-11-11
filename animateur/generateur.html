@@ -594,8 +594,10 @@ function attendusProcedure(att, proc) {   // un attendu par action de la procéd
   var garde = att.filter(function (a) { return a.test !== 'action' && a.test !== 'action_f'; }), t = heuresNiveaux(att);
   proc.forEach(function (p) {
     var base = t[p.niveau]; if (base == null) return;
-    garde.push({h: Math.round((base + 0.05 * (p.ordre - 1)) * 100) / 100, test: /^facultatif/i.test(p.libelle) ? 'action_f' : 'action', valeur: p.libelle,
-                libelle: (p.niveau === 'TOUS' ? "Prise d'astreinte" : p.niveau) + ' – ' + p.libelle, tolerance_h: tolerance(p)});
+    var pre = p.prealable === true;   // validation qui décide du passage : attendue juste avant le changement de niveau
+    garde.push({h: Math.round((pre ? base - 0.03 : base + 0.05 * (p.ordre - 1)) * 100) / 100, test: /^facultatif/i.test(p.libelle) ? 'action_f' : 'action', valeur: p.libelle,
+                libelle: (pre ? (p.niveau === 'NORMAL' ? 'Pour revenir à la normale' : 'Pour passer en ' + p.niveau) : (p.niveau === 'TOUS' ? "Prise d'astreinte" : p.niveau)) + ' – ' + p.libelle,
+                tolerance_h: tolerance(p)});
   });
   garde.sort(function (a, b) { return a.h - b.h; }); return garde;
 }
