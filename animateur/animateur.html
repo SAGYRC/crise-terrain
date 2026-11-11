@@ -601,6 +601,8 @@ function evalAttendus(E, h) {
       if (a.test === 'niveau') return e.type === 'niveau' && (a.valeur === 'NORMAL' ? d.niveau === 'NORMAL' : NIV[d.niveau] && NIV[a.valeur] && NIV[d.niveau].o >= NIV[a.valeur].o);
       if (a.test === 'action' || a.test === 'action_f') return e.type === 'action' && d.fait !== false && String(d.libelle || '').toLowerCase().indexOf(String(a.valeur).toLowerCase()) >= 0;
       if (a.test === 'scenario') return e.type === 'scenario' && String(d.q) === String(a.valeur);
+      if (a.test === 'releve') { var r = String(a.valeur).split('|'), hr = parseFloat(r[1]);   // relevé saisi pour ce poste après réception du SMS, hauteur à 15 cm près
+        return e.type === 'releve' && String(d.point) === r[0] && Number(e.h_simulee) >= t - 0.25 && (isNaN(hr) || Math.abs(Number(d.hauteur_m) - hr) <= 0.15); }
       if (a.test === 'vigie') { var v = String(a.valeur).split('|'); return e.type === 'vigie' && String(d.point) === v[0] && (!v[1] || d.statut === v[1]); }
       return false;
     })[0] || null;

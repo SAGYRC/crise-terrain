@@ -411,42 +411,105 @@ function genererScenario(o) {
   var tFinCrise = premier(function (t) { return t > tMax && qF(t) < Math.max(Qmax * 0.3, 15) && hydrasDessus(t, 'n1').length === 0; }, tMax) || D;
   var tDebutMontee = premier(function (t) { return qF(t) >= Math.min(30, Qmax * 0.35); }) || 0;
 
-  // ---------- Vigies : appels de présence, puis relevés
+  // ---------- Vigies : appels de présence, puis relevés d'échelle transmis par SMS (saisis à la main par le joueur)
+  // Chaque Vigie en place envoie au moins 3 relevés, aux moments utiles pour la décision : arrivée au poste,
+  // montée, passage du jaune, approche du pic, puis décrue. La cadence et les moments dépendent du type de crue.
+  var forme = o.forme || 'simple';
   var Fb = GEN.FIABILITE[o.fiabilite] || GEN.FIABILITE.bonne, cad = o.cadence || 1;
-  var tAct = tN2 != null ? tN2 + 0.75 : (tN1 != null ? tN1 + 1 : null);
+  var tAct = tN2 != null ? tN2 + 0.5 : (tN1 != null ? tN1 + 1 : null);   // SMS niveau 2 puis arrivée au poste
   var hauteur = function (e, t) {
     var nordE = e[5] === 'nord', Q = nordE ? qN(t) : qF(t), qj = nordE ? GEN.Q_JAUNE_NORD : GEN.Q_JAUNE, qr = nordE ? GEN.Q_ROUGE_NORD : GEN.Q_ROUGE;
     var j = e[2] || 1.8, r = e[3] || 2.6;
     if (Q <= qj) return Math.max(0.15, 0.25 + (j - 0.25) * Math.pow(Q / qj, 0.75));
     return j + (r - j) * (Q - qj) / (qr - qj);
   };
-  var tRetrait = null, vigies = [], tJaune = null, tRouge = null, nbFaux = 0, nbManques = 0;
+  var tRetrait = null, vigies = [], tJaune = null, tRouge = null, nbFaux = 0, nbManques = 0, relevesAtt = [];
+  var echRef = {}; GEN.ECHELLES.forEach(function (e) { echRef[e[0]] = e; });
   if (tAct != null && o.nbVigies > 0) {
-    var pts = GEN.POINTS.slice(), nv = Math.min(o.nbVigies, pts.length);
+    // les postes équipés d'une échelle d'abord (ceux du secteur nord en premier pour un orage sur le nord)
+    var melange = function (l) { return l.map(function (x) { return [R(), x]; }).sort(function (a, b) { return a[0] - b[0]; }).map(function (x) { return x[1]; }); };
+    var avecEch = melange(GEN.POINTS.filter(function (p) { return echRef[p[0]]; })), sansEch = melange(GEN.POINTS.filter(function (p) { return !echRef[p[0]]; }));
+    if (forme === 'nord') avecEch.sort(function (a, b) { return (echRef[b[0]][5] === 'nord') - (echRef[a[0]][5] === 'nord'); });
+    var pts = avecEch.concat(sansEch), nv = Math.min(o.nbVigies, pts.length), nDispo = 0;
     for (var i = 0; i < nv; i++) {
-      var pv = pts.splice(Math.floor(R() * pts.length), 1)[0], indispo = R() < 0.18, ta = Math.min(D - 0.5, tAct + 0.2 + R() * 0.8);
+      var pv = pts[i], indispo = nDispo > 0 && R() < 0.18, ta = Math.min(D - 0.5, tAct + 0.1 + R() * 0.5);
+      if (!indispo) nDispo++;
       ajout(ta, 'presence_vigie', 'Appel de la Vigie ' + pv[1] + ' : ' + (indispo ? 'indisponible' : 'en place'), {point: pv[0], statut: indispo ? 'indisponible' : 'en place'}, 'Le joueur doit saisir la présence (onglet Terrain).');
       vigies.push({p: pv, t: ta, dispo: !indispo});
     }
-    // la Vigie quitte son poste au passage en danger (consigne de sécurité) ou à la fin de la crise
-    var echRef = {}; GEN.ECHELLES.forEach(function (e) { echRef[e[0]] = e; });
-    vigies.filter(function (v) { return v.dispo && echRef[v.p[0]]; }).forEach(function (v) {
-      var e = echRef[v.p[0]];
-      for (var t = v.t + 0.3 + R() * 0.3; t <= Math.min(D - 0.2, tFinCrise + 1); t += cad + (R() - 0.5) * 0.3 * cad) {
-        var hm = hauteur(e, t);
-        if (e[3] && hm >= e[3] && tRouge == null) tRouge = t;
-        if (e[2] && hm >= e[2] && tJaune == null) tJaune = t;
-        if (R() < Fb.rate) { nbManques++; continue; }
-        var faux = R() < Fb.faux, lu = hm + (faux ? (R() < 0.5 ? -1 : 1) * (0.3 + R() * 0.3) : (R() - 0.5) * 0.06);
-        lu = Math.max(0.05, Math.round(lu * 100) / 100); if (faux) nbFaux++;
-        var t1 = Math.max(0, t - 0.5), d = hauteur(e, t) - hauteur(e, t1), tend = d > 0.04 ? 'montée' : d < -0.04 ? 'baisse' : 'stable';
-        var et = e[3] && lu >= e[3] ? ' (rouge)' : e[2] && lu >= e[2] ? ' (jaune)' : '';
-        ajout(t, 'releve_vigie', 'Vigie ' + e[1] + ' : ' + fr2(lu) + ' m' + et + (tend === 'baisse' ? ', en baisse' : tend === 'montée' ? ', en montée' : ''),
-              {point: e[0], hauteur_m: lu, tendance: tend, commentaire: '', douteux: faux || undefined},
-              faux ? 'Relevé erroné (hauteur réelle ' + fr2(hm) + ' m) : le joueur doit le recouper avec les stations ou rappeler la Vigie.' : (et ? 'Niveau' + et + ' dépassé.' : null));
-        if (e[3] && lu >= e[3] && !faux) { tRetrait = tRetrait == null ? t : tRetrait; }
-        if (tRetrait != null && t > tRetrait + 0.75) break;     // retrait des Vigies attendu après le passage au rouge
+    // moments clés communs à toutes les Vigies
+    var picsVus = cal.pics.map(function (p) { return genPic(fr, dt, p.h, 2).t; });
+    // plafond : au plus 24 à 32 SMS à saisir sur tout l'exercice (au moins 3 par Vigie)
+    var nEch = vigies.filter(function (v) { return v.dispo && echRef[v.p[0]]; }).length;
+    var plafond = forme === 'fausse' || forme === 'longue' ? 32 : 24;   // épisodes longs à deux pics : un peu plus de relevés
+    var maxParVigie = Math.max(3, Math.min(forme === 'simple' || forme === 'vigilance' ? 5 : 6, Math.floor(plafond / Math.max(1, nEch))));
+    vigies.filter(function (v) { return v.dispo && echRef[v.p[0]]; }).forEach(function (v, iv) {
+      var e = echRef[v.p[0]], nordE = e[5] === 'nord', cadV = forme === 'nord' && nordE ? Math.min(cad, 0.5) : cad;
+      var t0 = v.t + 0.25 + R() * 0.25, tFinV = Math.min(D - 0.2, tFinCrise + 1);
+      // passages jaune / rouge propres à cette échelle
+      var tJ = e[2] ? premier(function (t) { return hauteur(e, t) >= e[2]; }, t0, tFinV) : null;
+      var tRg = e[3] ? premier(function (t) { return hauteur(e, t) >= e[3]; }, t0, tFinV) : null;
+      if (tRg != null) tFinV = Math.min(tFinV, Math.max(tRg, t0) + 0.4);   // consigne de sécurité : dernier relevé puis retrait après le rouge
+      if (tFinV - t0 < 0.6) tFinV = Math.min(D - 0.05, t0 + 0.6);           // fenêtre minimale pour 3 relevés (montée très rapide : un SMS toutes les 20 min)
+      var win = tFinV - t0; cadV = Math.max(0.25, Math.min(cadV, win / 2.5)); var ecartMin = Math.min(Math.max(0.35, cadV * 0.5), win / 3);
+      var cands = [{t: t0, k: 'arrivee'}];
+      if (tJ != null) cands.push({t: tJ + 0.1, k: 'jaune'});
+      if (tRg != null) cands.push({t: Math.max(tRg + 0.05, t0 + 0.2), k: 'rouge'});
+      picsVus.forEach(function (tp) { if (tp > t0 + 0.3 && tp < tFinV) cands.push({t: tp - 0.2 + (R() - 0.5) * 0.5, k: 'pic'}); });
+      creux.forEach(function (c) { if (c.t > t0 && c.t < tFinV) { cands.push({t: (c.pic1.t + c.t) / 2 + (R() - 0.5) * 0.6, k: 'baisse'}); cands.push({t: c.t + (R() - 0.5) * 0.6, k: 'creux'}); cands.push({t: c.t + 1.5 + (R() - 0.5) * 0.6, k: 'reprise'}); } });
+      if (tRg == null && tFinCrise < D && tFinCrise > t0 + 1) cands.push({t: Math.min(tFinV - 0.1, tFinCrise + (R() - 0.5) * 0.6), k: 'decrue'});
+      for (var t = t0 + cadV; t < tFinV; t += cadV) cands.push({t: t + (R() - 0.5) * 0.2 * cadV, k: 'routine'});
+      // tri, fusion des moments trop proches (on garde le moment clé), puis plafond par Vigie
+      cands = cands.filter(function (c) { return c.t >= t0 - 0.01 && c.t <= tFinV + 0.01; }).sort(function (a, b) { return a.t - b.t; });
+      var garde = [];
+      cands.forEach(function (c) {
+        var der = garde[garde.length - 1];
+        if (der && c.t - der.t < ecartMin) { if (der.k === 'routine' && c.k !== 'routine') garde[garde.length - 1] = c; return; }
+        garde.push(c);
+      });
+      var ordreRetrait = ['routine', 'decrue', 'pic', 'reprise'];   // on retire d'abord la routine la plus serrée, puis la décrue, les pics, la reprise ; jamais l'arrivée, le jaune, le rouge, la baisse ni le creux
+      while (garde.length > maxParVigie) {
+        var iR = -1, ecart = 1e9;
+        for (var ko = 0; ko < ordreRetrait.length && iR < 0; ko++) garde.forEach(function (c, j) {
+          if (c.k !== ordreRetrait[ko] || j === 0) return;
+          var e2 = (j < garde.length - 1 ? garde[j + 1].t : tFinV) - garde[j - 1].t; if (e2 < ecart) { ecart = e2; iR = j; } });
+        if (iR < 0) break; garde.splice(iR, 1);
       }
+      while (garde.length < 3) {   // compléter dans le plus grand intervalle de la fenêtre
+        var bornes = garde.map(function (c) { return c.t; }).concat([tFinV]), jMax = 0;
+        for (var j = 1; j < bornes.length; j++) if (bornes[j] - bornes[j - 1] > bornes[jMax + 1] - bornes[jMax]) jMax = j - 1;
+        garde.splice(jMax + 1, 0, {t: (bornes[jMax] + bornes[jMax + 1]) / 2, k: 'routine'});
+      }
+      // relevés : un oubli de la Vigie n'est permis que s'il reste de quoi atteindre 3 relevés
+      var nOk = 0;
+      garde.forEach(function (c, j) {
+        var reste = garde.length - j;
+        if (c.k === 'routine' && nOk + reste - 1 >= 3 && R() < Fb.rate) {
+          nbManques++;
+          if (R() < 0.5) ajout(c.t + 0.4, 'consigne', 'Vigie ' + e[1] + ' : relevé non reçu', {}, "Si le joueur ne relance pas la Vigie, le noter (absence de nouvelles d'un poste).");
+          return;
+        }
+        var hm = hauteur(e, c.t), faux = c.k === 'routine' && nOk >= 1 && nOk + reste - 1 >= 3 && R() < Fb.faux;
+        var lu = hm + (faux ? (R() < 0.5 ? -1 : 1) * (0.3 + R() * 0.3) : (R() - 0.5) * 0.06);
+        lu = Math.max(0.05, Math.round(lu * 100) / 100); if (faux) nbFaux++;
+        var d = hauteur(e, c.t) - hauteur(e, Math.max(0, c.t - 0.5)), tend = d > 0.04 ? 'montée' : d < -0.04 ? 'baisse' : 'stable';
+        var et = e[3] && lu >= e[3] ? 'rouge' : e[2] && lu >= e[2] ? 'jaune' : '';
+        if (!faux && et === 'rouge' && tRouge == null) tRouge = c.t;
+        if (!faux && et && tJaune == null) tJaune = c.t;
+        var obs = {arrivee: 'Arrivé au poste. ', baisse: "Ça commence à baisser. ", creux: "Ça redescend bien, la rivière se calme. ", reprise: 'Ça remonte. ', decrue: "L'eau a bien baissé. ", rouge: "Repère rouge atteint, je me mets en sécurité. "}[c.k] || '';
+        var sms = obs + 'Échelle à ' + fr2(lu) + ' m' + (tend === 'montée' ? ', en montée' : tend === 'baisse' ? ', en baisse' : ', stable') + (et ? ' (au-dessus du ' + et + ')' : '') + '.';
+        ajout(c.t, 'releve_vigie', 'SMS Vigie ' + e[1] + ' : ' + fr2(lu) + ' m' + (et ? ' (' + et + ')' : '') + (tend === 'baisse' ? ', en baisse' : tend === 'montée' ? ', en montée' : ''),
+              {point: e[0], nom: e[1], hauteur_m: lu, tendance: tend, sms: sms, douteux: faux || undefined, moment: c.k},
+              faux ? 'Relevé erroné (hauteur réelle ' + fr2(hm) + ' m) : le joueur doit le recouper avec les stations ou rappeler la Vigie.'
+                   : 'Le joueur doit saisir ce relevé (onglet Terrain › Nouveau relevé).' + (et ? ' Niveau ' + et + ' dépassé.' : ''));
+        if (!faux && (nOk === 0 || c.k === 'jaune')) relevesAtt.push({h: Math.round(c.t * 10) / 10, point: e[0], nom: e[1], hauteur: lu, k: c.k});
+        if (!faux) nOk++;
+        if (c.k === 'rouge' && !faux) tRetrait = tRetrait == null ? c.t : Math.min(tRetrait, c.t);
+      });
+      // crue longue : la Vigie demande à être relevée après 6 h de poste
+      if (forme === 'longue' && garde[garde.length - 1].t - t0 >= 6 && iv < 2) ajout(t0 + 6, 'message', 'SMS Vigie ' + e[1], {de: 'Vigie ' + e[1], texte: 'Je suis au poste depuis 6 h, il pleut toujours. Quelqu\'un peut me relayer ?'}, 'Attendu : organiser la relève ou autoriser le retrait, noter au journal.');
+      // fausse décrue : une Vigie demande à partir pendant le creux
+      if (creux.length && iv === 0 && creux[0].t > t0 && creux[0].t < tFinV) ajout(creux[0].t + 0.3, 'message', 'SMS Vigie ' + e[1], {de: 'Vigie ' + e[1], texte: "L'eau baisse bien ici, je peux rentrer chez moi ?"}, 'Piège : la décrue est temporaire. Attendu : maintenir la Vigie en poste (nouvelle pluie annoncée).');
     });
   }
   // repères échelles indépendants des relevés (pour les attendus)
@@ -513,6 +576,7 @@ function genererScenario(o) {
   if (tN1 != null) { A(tN1 + 0.5, 'niveau', 'N1', 'Passer en pré-alerte (N1) : seuil 1 Hydras dépassé (' + hydrasDessus(tN1, 'n1').map(function (k) { return GEN.STATIONS[k].nom; }).join(', ') + ')', 1); A(tN1 + 1, 'action', 'SMS niveau 1', 'Envoyer les SMS niveau 1', 1); A(tN1 + 1.5, 'action', 'batardeau de la passerelle', "S'assurer de la pose du batardeau de la passerelle", 1.5); }
   if (tN2 != null) { A(tN2 + 0.5, 'niveau', 'N2', 'Passer en alerte (N2) : seuil 2 Hydras dépassé (' + hydrasDessus(tN2, 'n2').map(function (k) { return GEN.STATIONS[k].nom; }).join(', ') + ')', 1); A(tN2 + 1, 'action', 'SMS niveau 2', 'Activer le réseau des Vigies (SMS niveau 2)', 1); }
   evts.filter(function (e) { return e.type === 'presence_vigie'; }).forEach(function (e) { var pv = GEN.POINTS.filter(function (x) { return x[0] === e.donnees.point; })[0]; A(e.h + 0.5, 'vigie', e.donnees.point + '|' + e.donnees.statut, 'Saisir la présence de la Vigie ' + (pv ? pv[1] : e.donnees.point) + ' (' + e.donnees.statut + ')', 1); });
+  relevesAtt.forEach(function (r) { A(r.h, 'releve', r.point + '|' + r.hauteur.toFixed(2), 'Saisir le relevé de la Vigie ' + r.nom + ' : ' + fr2(r.hauteur) + ' m' + (r.k === 'jaune' ? ' (passage du jaune)' : ' (premier relevé)'), r.k === 'arrivee' ? 0.75 : 0.5); });
   if (tJ != null && (tN3 == null || tJ < tN3)) A(tJ + 0.25, 'niveau', 'N2bis', 'Vigilance clapets anti-retour (N2bis) : ' + (tJ === tClap ? 'clapet défaillant' : 'échelle au jaune'), 1);
   if (tClap != null) A(tClap + 0.5, 'action', 'surveillance des clapets', 'Surveiller ou faire intervenir sur les clapets', 1);
   if (tN3 != null) {
@@ -567,11 +631,11 @@ var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_CLE);
 var NIV = {NORMAL: {c: '#7f8c8d', l: 'Normale'}, N0: {c: '#3f5f86', l: 'Veille renforcée'}, N1: {c: '#b08900', l: 'Pré-alerte'}, N2: {c: '#c75c0a', l: 'Alerte'}, N2bis: {c: '#c0392b', l: 'Vigilance clapets'}, N3: {c: '#8e1b12', l: 'Danger'}};
 var TYPES_EV = {releve_vigie: ['Vigie', '#0a6fcf'], presence_vigie: ['Appel Vigie', '#7b61c9'], clapet: ['Clapet', '#c0392b'], batardeau: ['Batardeau', '#2e7d4f'], signalement: ['Terrain', '#b5560a'], message: ['Appel', '#3f5f86'], consigne: ['Consigne', '#9aa9ba']};
 var PRESETS = {
-  simple: {pics: [{h: 12, q: 120, foyer: 'general'}], pluie: 'soutenue', sols: 'normal', var: 'moyenne'},
-  fausse: {pics: [{h: 10, q: 65, foyer: 'ouest'}, {h: 21, q: 115, foyer: 'general'}], pluie: 'soutenue', sols: 'normal', var: 'moyenne'},
-  longue: {pics: [{h: 12, q: 75, foyer: 'ouest'}, {h: 19, q: 100, foyer: 'general'}], pluie: 'longue', sols: 'sature', var: 'faible'},
-  nord: {pics: [{h: 10, q: 105, foyer: 'nord'}], pluie: 'orage', sols: 'normal', var: 'forte'},
-  vigilance: {pics: [{h: 10, q: 35, foyer: 'ouest'}], pluie: 'soutenue', sols: 'sec', var: 'moyenne'}
+  simple: {pics: [{h: 12, q: 120, foyer: 'general'}], pluie: 'soutenue', sols: 'normal', var: 'moyenne', cad: '1'},
+  fausse: {pics: [{h: 10, q: 65, foyer: 'ouest'}, {h: 21, q: 115, foyer: 'general'}], pluie: 'soutenue', sols: 'normal', var: 'moyenne', cad: '1'},
+  longue: {pics: [{h: 12, q: 75, foyer: 'ouest'}, {h: 19, q: 100, foyer: 'general'}], pluie: 'longue', sols: 'sature', var: 'faible', cad: '2'},
+  nord: {pics: [{h: 10, q: 105, foyer: 'nord'}], pluie: 'orage', sols: 'normal', var: 'forte', cad: '0.5'},
+  vigilance: {pics: [{h: 10, q: 35, foyer: 'ouest'}], pluie: 'soutenue', sols: 'sec', var: 'moyenne', cad: '1'}
 };
 var ETAT = {pics: [], res: null, dureeManuelle: false, preset: null, timer: null};
 var PROC = [];   // procédure d'astreinte de l'outil de crise (table procedure_ref, tenue à jour par le poste joueur)
@@ -651,7 +715,7 @@ function init() {
 function appliquerPreset(k) {
   var P = PRESETS[k]; ETAT.preset = k;
   ETAT.pics = P.pics.map(function (x) { return {h: x.h, q: x.q, foyer: x.foyer}; });
-  $('gPluie').value = P.pluie; $('gSols').value = P.sols; $('gVar').value = P.var; ETAT.dureeManuelle = false;
+  $('gPluie').value = P.pluie; $('gSols').value = P.sols; $('gVar').value = P.var; ETAT.dureeManuelle = false; if (P.cad) $('gCad').value = P.cad;
   [].forEach.call(document.querySelectorAll('#presets button'), function (b) { b.classList.toggle('on', b.getAttribute('data-p') === k); });
   dessinerPics(); recalculer();
 }
@@ -690,7 +754,7 @@ function lireOptions() {
           typePluie: $('gPluie').value, humidite: $('gSols').value, variabilite: $('gVar').value, prevision: $('gPrev').value,
           nbVigies: Math.max(0, Math.min(11, Math.round(val('gVig')) || 0)), cadence: parseFloat($('gCad').value), fiabilite: $('gFiab').value,
           nb: {clapets: Math.max(0, Math.round(val('gClap')) || 0), desordres: Math.max(0, Math.round(val('gDes')) || 0), messages: Math.max(0, Math.round(val('gMsgN')) || 0)},
-          batardeau: $('gBat').checked, consignes: $('gCons').checked};
+          batardeau: $('gBat').checked, consignes: $('gCons').checked, forme: ETAT.preset || (pics.length > 1 ? 'fausse' : 'simple')};
 }
 function controler(o) {
   if (!o.pics.length) return 'Indiquez au moins un pic de crue.';
@@ -734,6 +798,8 @@ function apercu() {
   if (R.tSurvNord != null) puces.push(['r', 'Surverse des digues S1/S2 de ' + hh(R.tSurvNord) + ' à ' + hh(R.tFinSurvNord) + ' (crue centennale dépassée)']);
   R.creux.forEach(function (c) { puces.push(['o', 'Décrue apparente à ' + hh(c.t) + ' : ' + fr(c.q, 0) + ' m³/s (−' + c.baisse + ' %), puis remontée à ' + fr(c.pic2.q, 0) + ' m³/s']); });
   if (o.prevision !== 'fiable') puces.push(['o', 'Prévision piégée : ' + GEN.PREVISION[o.prevision].nom.toLowerCase()]);
+  var nSms = r.evts.filter(function (e) { return e.type === 'releve_vigie'; }).length;
+  if (nSms) puces.push(['b', nSms + ' SMS de Vigies à saisir par le joueur (au moins 3 par Vigie en place)']);
   if (R.nbFaux) puces.push(['o', R.nbFaux + ' relevé(s) de Vigie erroné(s) à repérer']);
   if (R.tSurvAval == null && R.Qmax >= 70) puces.push(['v', 'Les digues S3–S8 tiennent (marge ' + fr(GEN.Q_DIGUE_AVAL - R.Qmax, 0) + ' m³/s)']);
   if (R.scenario) puces.push(['b', 'Zone inondable à afficher : ' + R.scenario + ' m³/s']);
@@ -857,7 +923,7 @@ $('gEnreg').onclick = async function () {
   var s = await sb.from('scenarios').insert({nom: nom, description: desc, debut_simule: debut.toISOString(), duree_h: o.duree, source: 'Généré par l\'animateur (fictif)', deroule: r.derouleData || [], modifie_le: new Date().toISOString()}).select('id').single();
   if (s.error) { $('gEnreg').disabled = false; return message('gMsg', /duplicate|unique/i.test(s.error.message) ? 'Un scénario porte déjà ce nom.' : s.error.message, 'err'); }
   var id = s.data.id;
-  var canal = {presence_vigie: 'Appel de Vigie (à saisir par le joueur)', message: 'Appel / message à lire', releve_vigie: 'Relevé Vigie (injecté dans QGIS)', clapet: 'État d\'ouvrage (injecté)', batardeau: 'État d\'ouvrage (injecté)', signalement: 'Signalement terrain (injecté)', consigne: 'Consigne animateur (non transmise)'};
+  var canal = {presence_vigie: 'Appel de Vigie (à saisir par le joueur)', message: 'Appel / message à lire', releve_vigie: 'SMS de Vigie (relevé à saisir par le joueur)', clapet: 'État d\'ouvrage (injecté)', batardeau: 'État d\'ouvrage (injecté)', signalement: 'Signalement terrain (injecté)', consigne: 'Consigne animateur (non transmise)'};
   var res = await Promise.all([
     sb.from('scenario_pas').insert(r.pas.map(function (p) { return {scenario_id: id, h: p.h, q: p.q, pluie_1h: p.pluie_1h, pluie_sbv: p.pluie_sbv, prev_sbv: p.prev_sbv}; })),
     sb.from('scenario_evenements').insert(r.evts.map(function (e) { return {scenario_id: id, h: e.h, titre: e.titre, canal: canal[e.type], type: e.type, donnees: e.donnees, consigne: e.consigne}; })),

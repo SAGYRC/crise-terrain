@@ -143,10 +143,10 @@ var REF = {
 var NIV = {NORMAL: ['#7f8c8d', 'Retour à la normale'], N0: ['#3f5f86', 'Veille renforcée'], N1: ['#b08900', 'Pré-alerte'], N2: ['#c75c0a', 'Alerte'], N2bis: ['#c0392b', 'Vigilance clapets'], N3: ['#8e1b12', 'Danger']};
 var TYPES_EV = {releve_vigie: ['Relevé Vigie', '#0a6fcf'], presence_vigie: ['Appel Vigie', '#7b61c9'], clapet: ['Clapet', '#c0392b'], batardeau: ['Batardeau', '#2e7d4f'],
                 signalement: ['Signalement terrain', '#b5560a'], message: ['Appel / message', '#3f5f86'], consigne: ['Consigne animateur', '#9aa9ba']};
-var CANAL = {presence_vigie: 'Appel de Vigie (à saisir par le joueur)', message: 'Appel / message à lire', releve_vigie: 'Relevé Vigie (injecté dans QGIS)', clapet: "État d'ouvrage (injecté)",
+var CANAL = {presence_vigie: 'Appel de Vigie (à saisir par le joueur)', message: 'Appel / message à lire', releve_vigie: 'SMS de Vigie (relevé à saisir par le joueur)', clapet: "État d'ouvrage (injecté)",
              batardeau: "État d'ouvrage (injecté)", signalement: 'Signalement terrain (injecté)', consigne: 'Consigne animateur (non transmise)'};
 var TESTS = {episode: "Ouverture de l'épisode", niveau: 'Passage de niveau', niveau_a: 'Niveau tenu à cette heure', action: 'Action de la procédure', action_f: 'Action facultative',
-             scenario: 'Zone inondable affichée', vigie: 'Présence de Vigie saisie', manuel: 'À constater par l\'animateur'};
+             scenario: 'Zone inondable affichée', vigie: 'Présence de Vigie saisie', releve: 'Relevé de Vigie saisi', manuel: 'À constater par l\'animateur'};
 
 var E = {liste: [], sc: null, pas: [], ev: [], att: [], der: [], proc: [], sessions: 0, onglet: 'general', modifie: false, prevAuto: false, vuePluie: 'pluie'};
 
@@ -356,6 +356,9 @@ function vAttendus() {
     if (a.test === 'vigie') { var v = String(a.valeur || '|').split('|');
       return '<div class="quand"><select data-i="' + i + '" data-f="_vpt" style="width:150px">' + REF.POINTS.map(function (p) { return '<option value="' + p[0] + '"' + (p[0] === v[0] ? ' selected' : '') + '>' + esc(p[1]) + '</option>'; }).join('') + '</select>'
         + '<select data-i="' + i + '" data-f="_vst" style="width:110px"><option' + (v[1] === 'en place' ? ' selected' : '') + '>en place</option><option' + (v[1] === 'indisponible' ? ' selected' : '') + '>indisponible</option></select></div>'; }
+    if (a.test === 'releve') { var r = String(a.valeur || '|').split('|');
+      return '<div class="quand"><select data-i="' + i + '" data-f="_rpt" style="width:150px">' + REF.POINTS.map(function (p) { return '<option value="' + p[0] + '"' + (p[0] === r[0] ? ' selected' : '') + '>' + esc(p[1]) + '</option>'; }).join('') + '</select>'
+        + '<input type="text" data-i="' + i + '" data-f="_rh" style="width:70px" placeholder="h (m)" value="' + esc((r[1] || '').replace('.', ',')) + '"></div>'; }
     if (a.test === 'episode') return '<span class="mini">épisode ouvert</span>';
     return '<span class="mini">constaté à la main</span>';
   };
@@ -371,7 +374,9 @@ function vAttendus() {
     }).join('') : ligneVide(6)) + '</tbody></table></div></div>';
   var t = $('tAtt');
   t.addEventListener('change', function (e) {
-    var f = e.target.getAttribute('data-f'), i = e.target.getAttribute('data-i'); if (f !== '_vpt' && f !== '_vst') return;
+    var f = e.target.getAttribute('data-f'), i = e.target.getAttribute('data-i');
+    if (f === '_rpt' || f === '_rh') { var tr2 = e.target.closest('tr'), hv = nb(tr2.querySelector('[data-f="_rh"]').value); E.att[+i].valeur = tr2.querySelector('[data-f="_rpt"]').value + '|' + (hv == null ? '' : hv.toFixed(2)); modifie(); return; }
+    if (f !== '_vpt' && f !== '_vst') return;
     var tr = e.target.closest('tr'); E.att[+i].valeur = tr.querySelector('[data-f="_vpt"]').value + '|' + tr.querySelector('[data-f="_vst"]').value; modifie();
   });
   lierTableau('tAtt', function () { return E.att; }, function (re) {
@@ -380,6 +385,7 @@ function vAttendus() {
       if ((a.test === 'niveau' || a.test === 'niveau_a') && !NIV[a.valeur]) a.valeur = 'N1';
       if (a.test === 'scenario' && REF.SCEN_Q.indexOf(+a.valeur) < 0) a.valeur = '141';
       if (a.test === 'vigie' && String(a.valeur).indexOf('|') < 0) a.valeur = REF.POINTS[0][0] + '|en place';
+      if (a.test === 'releve' && String(a.valeur).indexOf('|') < 0) a.valeur = REF.POINTS[0][0] + '|';
     });
     vAttendus(); dessinerOnglets();
   });
