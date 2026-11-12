@@ -982,7 +982,7 @@ function dessinerCarte() {
       var defa = o.etat && !/^ok$/i.test(o.etat) && !/non renseign/i.test(o.etat);
       if (!o.zone && !defa) return;
       rond(o.pos, defa ? (/suspect/i.test(o.etat) ? "#e67e22" : "#c0392b") : "#7f8c8d", defa ? 7 : 5).on("click", function (e) { L.DomEvent.stop(e);
-        fiche("Clapet anti-retour", o.code, ['<button class="btn petit" style="margin-top:4px" data-sig-clapet="' + esc(o.code) + '">Signaler un dysfonctionnement</button>', esc(o.commune || "") + (o.riviere ? " · " + esc(o.riviere) : ""), "État : <b style=\"display:inline;font-size:15px\">" + esc(o.etat) + "</b>", o.q_ref ? "Concerné à partir de " + o.q_ref + " m³/s" : ""]); }).addTo(C.ouvrages);
+        fiche("Clapet anti-retour", o.code, ['<button class="btn petit" style="margin-top:4px" data-sig-clapet="' + esc(o.code) + '">Signaler un dysfonctionnement</button>', esc(o.commune || "") + (o.riviere ? " · " + esc(o.riviere) : ""), "État : <b style=\"display:inline;font-size:15px\">" + esc(o.etat) + "</b>", o.q_ref ? "Refoulement modélisé pour la crue " + (+o.q_ref === 100 ? "centennale (Q100)" : "trentennale (Q30)") : ""]); }).addTo(C.ouvrages);
     } else if (o.t === "batardeau") {
       L.marker(o.pos, {icon: L.divIcon({className: "", iconSize: [22, 22], html: '<div style="width:20px;height:20px;border-radius:4px;background:#6c3483;border:2px solid #fff;color:#fff;font:900 12px/16px Nunito;text-align:center;box-shadow:0 0 2px #0006">B</div>'})})
         .on("click", function (e) { L.DomEvent.stop(e); fiche("Batardeau", o.nom || o.code, [esc(o.commune || ""), "État : <b style=\"display:inline;font-size:15px\">" + esc(o.etat || "non renseigné") + "</b>", o.consigne ? esc(o.consigne) : ""]); }).addTo(C.ouvrages);
