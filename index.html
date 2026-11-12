@@ -112,6 +112,27 @@ p{margin:0}
 .table th:first-child,.table td:first-child{text-align:left}
 .table td{padding:8px 6px;border-top:1px solid var(--line);text-align:right}
 .note{font-size:13px;color:var(--ink-soft)}
+/* fraîcheur des données (même code couleur que le panneau de l'astreinte) */
+.fr{font-weight:900}.fr-v{color:#1e8449}.fr-j{color:#b9770e}.fr-r{color:#c0392b}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .fr-v{color:#7fd69a}:root:not([data-theme="light"]) .fr-j{color:#f3c97a}:root:not([data-theme="light"]) .fr-r{color:#f5a39b}}
+:root[data-theme="dark"] .fr-v{color:#7fd69a}:root[data-theme="dark"] .fr-j{color:#f3c97a}:root[data-theme="dark"] .fr-r{color:#f5a39b}
+.hj{color:#b9770e;font-weight:800}.hr{color:#c0392b;font-weight:800}
+/* pluie prévue : huit classes pastel, comme la carte de l'astreinte */
+.pl-hero{background:var(--surface);border:1.5px solid var(--line);border-left:5px solid var(--accent);border-radius:14px;padding:12px 14px}
+.pl-hero .t{font-size:12.5px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.3px}
+.pl-hero .v{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:4px}
+.pl-hero .v b{font-size:30px;font-weight:900}
+.pval{display:inline-block;border-radius:99px;padding:2px 10px;font-weight:900}
+.pint{display:inline-block;border-radius:99px;padding:1px 9px;font-size:12px;font-weight:900}
+.pl-li{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.pl-li:first-of-type{border-top:0}
+.pl-li i{flex:none;width:14px;height:14px;border-radius:4px;border:1px solid #b4bcc6}
+.pl-li .n{flex:1;min-width:0}.pl-li .n b{display:block;color:var(--ink)}.pl-li .n small{color:var(--ink-soft);font-size:12px}
+.pl-li .d{text-align:right;flex:none}.pl-li .d small{display:block;color:var(--ink-soft);font-size:11.5px;margin-top:2px}
+.pl-leg{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11.5px;color:var(--ink-soft);margin-top:8px}
+.pl-leg span{display:inline-flex;align-items:center;gap:4px}.pl-leg i{width:11px;height:11px;border-radius:3px;border:1px solid #b4bcc6}
+.lab-sbv{background:#fff;border:1px solid #cfd8e3;border-radius:8px;padding:1px 6px;font:800 11px/1.25 Nunito,sans-serif;text-align:center;white-space:nowrap;box-shadow:0 1px 2px #0002;transform:translate(-50%,-50%);display:inline-block}
+.lab-sbv small{display:block;font-size:9.5px;font-weight:700}
 /* carte */
 #ecCarte{position:fixed;left:0;right:0;top:var(--haut,120px);bottom:calc(64px + env(safe-area-inset-bottom));max-width:480px;margin:0 auto}
 #carte{position:absolute;inset:0}
@@ -385,6 +406,7 @@ nav button.alerte .pastille{display:block}
   <div id="carte"></div>
   <div class="couches" id="couches">
     <button data-c="zone" class="on">Zone inondable potentielle</button>
+    <button data-c="pluie">Pluie prévue (6 h)</button>
     <button data-c="batiments" class="on">Bâtiments inondés</button>
     <button data-c="routes" class="on">Routes coupées</button>
     <button data-c="mesures" class="on">Mesures</button>
@@ -392,6 +414,7 @@ nav button.alerte .pastille{display:block}
   </div>
   <div class="carte-info cache" id="carteInfo"></div>
   <div class="legende" id="legende"></div>
+  <div class="legende cache" id="legendePluie" style="top:58px;bottom:auto"></div>
   <button class="btpos" id="btMaPos" aria-label="Ma position"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
   <div class="fiche cache" id="fiche"><button class="x" id="ficheX" aria-label="Fermer">×</button><div id="ficheCorps"></div></div>
 </section>
@@ -446,7 +469,7 @@ var GRAV_LIB = {gene: "Gêne", risque: "Risque", danger: "Danger"};
 var ETAT_LIB = {envoye: ["Envoyé", "envoye"], recu: ["Reçu par l'astreinte", "recu"], "pris en charge": ["Pris en charge", "pris"], clos: ["Traité", "clos"]};
 
 var etat = {moi: null, agent: null, sit: null, versions: {}, zone: null, routes: null, ouvrages: null, alertes: null, batiments: null, ecran: "situation", modeNiv: "echelle", resol: null,
-            sig: {type: null, gravite: null, pos: null, photo: null}, timer: null, carte: null, couches: {}, posMarq: null};
+            sig: {type: null, gravite: null, pos: null, photo: null}, timer: null, carte: null, couches: {}, posMarq: null, sous_bassins: null};
 
 function $(id) { return document.getElementById(id); }
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]; }); }
@@ -460,6 +483,19 @@ function quand(iso) {
   var auj = new Date().toDateString() === d.toDateString();
   return (auj ? "" : d.toLocaleDateString("fr-FR", {day: "2-digit", month: "2-digit"}) + " ") + heure(iso);
 }
+var FRAIS = {debit: [30, 120], pluvio: [30, 120], echelle: [60, 180], arome: [180, 360]};   // minutes : vert jusqu'au 1er seuil, jaune jusqu'au 2e, rouge au-delà
+function frDate(iso, type, pre) {
+  if (!iso) return '<span class="fr fr-r">pas de donnée</span>';
+  var m = (Date.now() - new Date(iso)) / 60000, sl = FRAIS[type] || FRAIS.debit, c = m <= sl[0] ? "fr-v" : m <= sl[1] ? "fr-j" : "fr-r";
+  return '<span class="fr ' + c + '">' + (pre || "") + quand(iso) + (c === "fr-r" ? " (ancienne)" : "") + "</span>";
+}
+// pluie prévue en 6 h : huit classes (fond pastel, texte foncé de la même teinte)
+var CL_PLUIE = [[5, "< 5 mm", "#e6e8eb", "#6b7280"], [10, "5–10", "#d4efd2", "#3d8b40"], [20, "10–20", "#b1e0ae", "#2e7d32"], [30, "20–30", "#f8efa6", "#8a6d00"],
+                [40, "30–40", "#fbd59c", "#b25e00"], [50, "40–50", "#f8b88e", "#b0461a"], [60, "50–60", "#f2a0a0", "#b3261e"], [1e9, "≥ 60 mm", "#d2b4e6", "#6a1b9a"]];
+function clPluie(p) { if (p == null) return null; for (var i = 0; i < CL_PLUIE.length; i++) if (p < CL_PLUIE[i][0]) return CL_PLUIE[i]; return CL_PLUIE[7]; }
+function intensPluie(p) { return p == null ? "" : p < 5 ? "faible" : p < 10 ? "modérée" : p < 20 ? "soutenue" : "forte"; }
+function pPluie(p, d, st) { var c = clPluie(p); return c ? '<span class="pval" style="' + (st || "") + "background:" + c[2] + ";color:" + c[3] + '">' + nb(p, d == null ? 0 : d) + " mm</span>" : "–"; }
+function pInt(p) { var c = clPluie(p); return c ? '<span class="pint" style="background:' + c[2] + ";color:" + c[3] + '">' + intensPluie(p) + "</span>" : ""; }
 function clair(c) {
   if (!c || c[0] !== "#" || c.length < 7) return false;
   var r = parseInt(c.substr(1, 2), 16), g = parseInt(c.substr(3, 2), 16), b = parseInt(c.substr(5, 2), 16);
@@ -586,7 +622,7 @@ function actualiser() {
     if (!r.data) { etat.sit = null; afficher(); return; }
     etat.sit = r.data.contenu; stocker("sit", {situation: etat.sit});
     var v = etat.sit.versions || {}, aCharger = [];
-    ["zone", "batiments", "routes", "ouvrages", "alertes"].forEach(function (k) {
+    ["zone", "batiments", "routes", "ouvrages", "alertes", "sous_bassins"].forEach(function (k) {
       if (!v[k]) { etat[k] = null; etat.versions[k] = null; } else if (etat.versions[k] !== v[k]) aCharger.push(k); });
     afficher(); dessinerCarte();
     if (!aCharger.length) return;
@@ -648,7 +684,7 @@ function afficher() {
   var riv = s.rivieres || [], fr = riv.filter(function (r) { return r.code === REF_STATION || /francheville/i.test(r.nom || ""); })[0];
   if (fr) {
     $("kRiv").innerHTML = m3s(fr.q_ls) + " m³/s " + tendance(fr.q_ls, fr.q_1h);
-    $("kRivD").innerHTML = (fr.niveau_atteint ? '<span class="puce ' + fr.niveau_atteint + '">' + fr.niveau_atteint + "</span> " : "") + "mesuré " + quand(fr.date) + " – autres stations ›";
+    $("kRivD").innerHTML = (fr.niveau_atteint ? '<span class="puce ' + fr.niveau_atteint + '">' + fr.niveau_atteint + "</span> " : "") + frDate(fr.date, "debit", "mesuré ") + " – autres stations ›";
   } else { $("kRiv").textContent = "–"; $("kRivD").textContent = "station non publiée"; }
   $("kRiv").parentNode.classList.toggle("alerte", !!(fr && fr.niveau_atteint));
   // KPI échelles : la plus proche de ses seuils (jaune puis rouge)
@@ -668,7 +704,7 @@ function afficher() {
   var pv = (s.pluie && s.pluie.prevue) || [], p6 = null, p24 = null;
   pv.forEach(function (x) { if (x.p6 != null) p6 = Math.max(p6 || 0, x.p6); if (x.p24 != null) p24 = Math.max(p24 || 0, x.p24); });
   $("kPluie").textContent = p6 == null ? "–" : nb(p6, 0) + " mm";
-  $("kPluieD").textContent = p24 == null ? "" : nb(p24, 0) + " mm sur 24 h (max. sous-bassin)";
+  $("kPluieD").textContent = p6 == null ? "" : "intensité " + intensPluie(p6) + (p24 == null ? "" : " · " + nb(p24, 0) + " mm sur 24 h") + " (max. sous-bassin)";
   $("kPluie").parentNode.classList.toggle("alerte", p6 != null && p6 >= 20);
   // KPI zone inondable potentielle : scénario retenu par l'astreinte
   var z = s.zone || {};
@@ -697,24 +733,39 @@ function afficherMesures() {
     var j = seuils.length ? '<div class="jauge"><i style="width:' + pc + '%"></i>' + seuils.map(function (x) {
       return '<u class="' + (x.niveau === "N2" ? "r" : "") + '" style="left:' + Math.min(99, x.valeur / max * 100) + '%"></u>'; }).join("") + "</div>" +
       '<div class="jlib"><span>' + seuils.map(function (x) { return x.niveau + " : " + m3s(x.valeur) + " m³/s"; }).join(" · ") + "</span></div>" : "";
-    return '<div class="carte"><div class="mes"><div class="nom"><b>' + esc(r.nom) + "</b><span>" + esc(r.cours_eau || "") + " · " + quand(r.date) + "</span></div>" +
+    return '<div class="carte"><div class="mes"><div class="nom"><b>' + esc(r.nom) + "</b><span>" + esc(r.cours_eau || "") + " · " + frDate(r.date, "debit") + "</span></div>" +
       '<div class="val">' + tendance(r.q_ls, r.q_1h) + "<b>" + m3s(r.q_ls) + "</b><span>m³/s" + (r.niveau_atteint ? ' <span class="puce ' + r.niveau_atteint + '">' + r.niveau_atteint + "</span>" : "") + "</span></div></div>" + j + "</div>";
   }).join("") || '<p class="vide">Aucune station publiée.</p>';
   $("mesEchelles").innerHTML = (s.echelles || []).map(function (e) {
     var max = (e.rouge || e.jaune || 3) * 1.2, pc = e.h == null ? 0 : Math.min(100, e.h / max * 100);
     var j = (e.jaune || e.rouge) ? '<div class="jauge"><i style="width:' + pc + '%"></i>' + (e.jaune ? '<u style="left:' + (e.jaune / max * 100) + '%"></u>' : "") + (e.rouge ? '<u class="r" style="left:' + (e.rouge / max * 100) + '%"></u>' : "") + "</div>" +
-      '<div class="jlib"><span>' + (e.jaune ? "jaune " + nb(e.jaune, 2) + " m" : "") + (e.rouge ? " · rouge " + nb(e.rouge, 2) + " m" : "") + "</span></div>" : "";
-    return '<div class="carte"><div class="mes"><div class="nom"><b>' + esc(e.nom) + "</b><span>" + esc(e.commune || "") + (e.date ? " · lu " + quand(e.date) : " · pas de relevé") + "</span></div>" +
+      '<div class="jlib"><span>' + (e.jaune ? '<span class="hj">' + nb(e.jaune, 2) + " m</span>" : "") + (e.jaune && e.rouge ? " · " : "") + (e.rouge ? '<span class="hr">' + nb(e.rouge, 2) + " m</span>" : "") + "</span></div>" : "";
+    return '<div class="carte"><div class="mes"><div class="nom"><b>' + esc(e.nom) + "</b><span>" + esc(e.commune || "") + " · " + (e.date ? frDate(e.date, "echelle", "lu ") : '<span class="fr fr-r">pas de relevé</span>') + "</span></div>" +
       '<div class="val">' + tendEch(e.tendance) + "<b>" + (e.h == null ? "–" : nb(e.h, 2)) + "</b><span>m" + (e.niveau_atteint ? ' <span class="puce ' + e.niveau_atteint + '">' + (e.niveau_atteint === "N3" ? "rouge" : "jaune") + "</span>" : "") + "</span></div></div>" + j + "</div>";
   }).join("") || '<p class="vide">Aucune échelle publiée.</p>';
   var p = s.pluie || {}, pv = p.prevue || [], po = p.observee || [];
-  $("mesPluie").innerHTML = '<div class="carte"><b style="color:var(--ink)">Pluie prévue par sous-bassin</b>' +
-    (pv.length ? '<table class="table"><tr><th>Sous-bassin</th><th>3 h</th><th>6 h</th><th>24 h</th></tr>' + pv.map(function (x) {
-      return "<tr><td>" + esc(x.nom) + "</td><td>" + nb(x.p3, 0) + '</td><td><b>' + nb(x.p6, 0) + "</b></td><td>" + nb(x.p24, 0) + "</td></tr>"; }).join("") + "</table>" +
-      '<p class="note">En mm · prévision du ' + quand(pv[0].run) + ". Veille renforcée proposée à partir de 20 mm en 6 h.</p>" : '<p class="vide">Pas de prévision publiée.</p>') + "</div>" +
-    '<div class="carte"><b style="color:var(--ink)">Pluie observée</b>' +
+  $("mesPluie").innerHTML = htmlPluie(pv, po);
+}
+
+function htmlPluie(pv, po) {
+  var h = "";
+  if (pv.length) {
+    var tri = pv.slice().sort(function (a, b) { return (b.p6 || 0) - (a.p6 || 0); }), m = tri[0], p24 = Math.max.apply(null, pv.map(function (x) { return x.p24 || 0; }));
+    h += '<div class="pl-hero"><div class="t">Pluie prévue · 6 prochaines heures</div>' +
+      '<div class="v">' + pPluie(m.p6, 0, "font-size:26px;padding:2px 14px;") + pInt(m.p6) + '</div>' +
+      '<p class="note" style="margin:6px 0 0">Sous-bassin le plus arrosé : <b>' + esc(m.nom) + "</b> · sur 24 h : jusqu'à " + nb(p24, 0) + " mm</p>" +
+      '<p class="note" style="margin:4px 0 0">Prévision AROME HD ' + frDate(m.run, "arome") + ". Veille renforcée proposée à partir de 20 mm en 6 h.</p></div>";
+    h += '<div class="carte"><b style="color:var(--ink)">Par sous-bassin (6 h)</b>' + tri.map(function (x) {
+      var c = clPluie(x.p6);
+      return '<div class="pl-li"><i style="background:' + (c ? c[2] : "#eef1f4") + '"></i><div class="n"><b>' + esc(x.nom) + "</b>" + (x.cours_eau && x.cours_eau !== x.nom ? "<small>" + esc(x.cours_eau) + "</small>" : "") + "</div>" +
+        '<div class="d">' + pPluie(x.p6) + " " + pInt(x.p6) + "<small>3 h : " + nb(x.p3, 0) + " · 24 h : " + nb(x.p24, 0) + " mm</small></div></div>";
+    }).join("") + '<div class="pl-leg">' + CL_PLUIE.map(function (c) { return '<span><i style="background:' + c[2] + '"></i>' + c[1] + "</span>"; }).join("") + "</div>" +
+      '<p class="note" style="margin:6px 0 0">Intensité sur 6 h : faible (< 5 mm), modérée (5–10), soutenue (10–20), forte (20 mm et plus).</p></div>';
+  } else h += '<div class="carte"><b style="color:var(--ink)">Pluie prévue par sous-bassin</b><p class="vide">Pas de prévision publiée.</p></div>';
+  h += '<div class="carte"><b style="color:var(--ink)">Pluie observée</b>' +
     (po.length ? '<table class="table"><tr><th>Pluviomètre</th><th>1 h</th><th>24 h</th></tr>' + po.map(function (x) {
-      return "<tr><td>" + esc(x.nom) + "<br><small style=\"color:var(--ink-soft)\">" + (x.date ? quand(x.date) : "pas de donnée") + "</small></td><td>" + nb(x.p1h, 1) + "</td><td><b>" + nb(x.p24h, 1) + "</b></td></tr>"; }).join("") + "</table>" : '<p class="vide">Pas de mesure publiée.</p>') + "</div>";
+      return "<tr><td>" + esc(x.nom) + '<br><small style="font-size:12px">' + frDate(x.date, "pluvio") + "</small></td><td>" + nb(x.p1h, 1) + "</td><td><b>" + nb(x.p24h, 1) + "</b></td></tr>"; }).join("") + "</table>" : '<p class="vide">Pas de mesure publiée.</p>') + "</div>";
+  return h;
 }
 
 /* ---------- alertes ---------- */
@@ -830,7 +881,12 @@ function initCarte() {
   c.getContainer().querySelector(".leaflet-top.leaflet-right").style.marginTop = "48px";
   c.on("click", function () { $("fiche").classList.add("cache"); });
   etat.carte = c;
+  c.createPane("pluie"); c.getPane("pluie").style.zIndex = 350;
+  c.createPane("pluieLab"); c.getPane("pluieLab").style.zIndex = 450; c.getPane("pluieLab").style.pointerEvents = "none";
   ["zone", "batiments", "routes", "mesures", "ouvrages"].forEach(function (k) { etat.couches[k] = L.layerGroup().addTo(c); });
+  etat.couches.pluie = L.layerGroup();   // masquée par défaut
+  c.on("zoomend", function () { if (c.hasLayer(etat.couches.pluie)) dessinerPluie(); });
+  $("legendePluie").innerHTML = "<b>Pluie prévue 6 h</b><br>" + CL_PLUIE.map(function (x) { return '<i style="background:' + x[2] + '"></i>' + x[1] + (x[1].indexOf("mm") < 0 ? " mm" : ""); }).join("<br>");
   $("legende").innerHTML = "<b>Hauteur d'eau</b><br>" + LIB_ZONE.map(function (l, i) { return '<i style="background:' + COUL_ZONE[i] + '"></i>' + l; }).join("<br>") +
     '<br><i style="background:#a569bd"></i>Refoulement clapet<br><i style="background:#e74c3c"></i>Bâtiment inondé';
   dessinerCarte();
@@ -841,6 +897,7 @@ $("couches").onclick = function (ev) {
   b.classList.toggle("on", on);
   if (on) etat.couches[k].addTo(etat.carte); else etat.carte.removeLayer(etat.couches[k]);
   if (k === "zone") { $("legende").classList.toggle("cache", !on); $("carteInfo").classList.toggle("cache", !on); }
+  if (k === "pluie") { $("legendePluie").classList.toggle("cache", !on); if (on) dessinerPluie(); }
 };
 $("ficheX").onclick = function () { $("fiche").classList.add("cache"); };
 $("ficheCorps").onclick = function (ev) {
@@ -858,10 +915,30 @@ function cadrerZone() {
   if (l && l.getBounds && l.getBounds().isValid()) etat.carte.fitBounds(l.getBounds(), {padding: [20, 20]});
 }
 function rond(pos, coul, r, bord) { return L.circleMarker(pos, {radius: r || 8, color: bord || "#fff", weight: 2, fillColor: coul, fillOpacity: 1}); }
+function dessinerPluie() {
+  var G = etat.couches.pluie; if (!G || !etat.carte) return; G.clearLayers();
+  var sb = etat.sous_bassins, pv = ((etat.sit || {}).pluie || {}).prevue || [], par = {};
+  if (!sb || !sb.features) return;
+  pv.forEach(function (x) { par[x.code || x.nom] = x; });
+  var noms = etat.carte.getZoom() >= 13;
+  sb.features.forEach(function (f) {
+    var p = f.properties, x = par[p.code] || par[p.nom] || {}, c = clPluie(x.p6);
+    L.geoJSON(f, {pane: "pluie", style: {color: "#b4bcc6", weight: 1, fillColor: c ? c[2] : "#e3e7ec", fillOpacity: c ? 0.69 : 0.45},
+      onEachFeature: function (ff, l) { l.on("click", function (e) { L.DomEvent.stop(e);
+        fiche("Pluie prévue (AROME HD)", p.nom, [x.p6 == null ? "Pas de prévision" : pPluie(x.p6) + " en 6 h " + pInt(x.p6), x.p6 == null ? "" : "3 h : " + nb(x.p3, 0) + " mm · 24 h : " + nb(x.p24, 0) + " mm",
+          x.run ? "Prévision " + frDate(x.run, "arome") : ""]); }); }}).addTo(G);
+    if (p.pt && x.p6 != null && (x.p6 >= 1 || noms)) {
+      var col = c ? c[3] : "#6b7280";
+      L.marker(p.pt, {pane: "pluieLab", interactive: false, icon: L.divIcon({className: "", iconSize: [0, 0],
+        html: '<div class="lab-sbv" style="color:' + col + '">' + (noms ? "<small>" + esc(p.nom) + "</small>" : "") + (x.p6 >= 1 ? nb(x.p6, 0) + " mm" : "") + "</div>"})}).addTo(G);
+    }
+  });
+}
 function dessinerCarte() {
   if (!etat.carte) return;
   var C = etat.couches; Object.keys(C).forEach(function (k) { C[k].clearLayers(); });
   var s = etat.sit || {};
+  dessinerPluie();
   if (etat.zone && etat.zone.features && etat.zone.features.length) {
     L.geoJSON(etat.zone, {interactive: false, style: function (f) {
       if (f.properties.classe === "clapet") return {color: "#7d3c98", weight: 1.5, dashArray: "4 3", fillColor: "#a569bd", fillOpacity: 0.45};
