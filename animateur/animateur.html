@@ -551,17 +551,32 @@ function valeurs(E) {
   $('cValeurs').innerHTML = h;
 }
 
+// ---------- Vigies : elles ne se manifestent qu'après leur activation par le joueur (action « SMS niveau 2 … Vigies » cochée)
+function estVigie(e) { return e.type === 'presence_vigie' || e.type === 'releve_vigie' || (e.type === 'message' && (/^Vigie /i.test((e.donnees || {}).de || '') || /^SMS Vigie/i.test(e.titre || ''))); }
+function vigiesEtat(E) {
+  var act = null;
+  (E.joueur_evenements || []).forEach(function (e) {
+    var d = e.donnees || {}, l = String(d.libelle || '').toLowerCase();
+    if (e.type === 'action' && d.fait !== false && d.niveau === 'N2' && l.indexOf('vigie') >= 0 && (l.indexOf('sms') >= 0 || l.indexOf('activ') >= 0) && l.indexOf('relanc') < 0)
+      act = act === null ? Number(e.h_simulee) : Math.min(act, Number(e.h_simulee));
+  });
+  var plan = null; EVTS.forEach(function (e) { if (e.type === 'presence_vigie') plan = plan === null ? Number(e.h) : Math.min(plan, Number(e.h)); });
+  return {act: act, plan: plan, dec: act === null || plan === null ? null : Math.max(act + 0.17 - plan, -1)};
+}
+
 function evenements(E, h) {
+  var VG = vigiesEtat(E);
   var inj = {}; (E.injections || []).forEach(function (i) { if (i.evenement_id) inj[i.evenement_id] = i; });
   var libres = (E.injections || []).filter(function (i) { return !i.evenement_id; });
   var html = '', n = 0;
   EVTS.forEach(function (e) {
     var i = inj[e.id], etat, ec, cl = '';
-    if (i && i.ignore) { etat = 'Ignoré'; ec = '#9aa9ba'; }
+    if (i && i.ignore) { etat = /^Non transmis/.test(i.consigne || '') ? 'Non transmis : Vigie pas encore en place' : 'Ignoré'; ec = '#9aa9ba'; }
     else if (i && e.type === 'consigne') { etat = 'À faire maintenant'; ec = '#b5560a'; cl = (h - e.h < 1 ? ' now' : ''); n++; }
     else if (i && i.recu_le) { etat = 'Reçu dans QGIS à ' + hReel(i.recu_le); ec = '#2e7d4f'; n++; }
     else if (i) { etat = 'Envoyé, en attente de QGIS'; ec = '#0a6fcf'; cl = ' now'; n++; }
-    else { var dh = e.h - h; etat = 'Dans ' + (dh < 1 ? Math.round(dh * 60) + ' min' : fr(dh, 1) + ' h') + ' (simulées)'; ec = '#5c6f85'; cl = ' futur'; }
+    else if (estVigie(e) && VG.dec === null && e.type === 'presence_vigie' && e.h <= h) { etat = 'En attente : le joueur n\'a pas encore activé les Vigies (SMS niveau 2)'; ec = '#b5560a'; cl = ' futur'; }
+    else { var dh = e.h + (e.type === 'presence_vigie' && VG.dec !== null ? VG.dec : 0) - h; if (dh < 0) dh = 0; etat = 'Dans ' + (dh < 1 ? Math.round(dh * 60) + ' min' : fr(dh, 1) + ' h') + ' (simulées)'; ec = '#5c6f85'; cl = ' futur'; }
     html += '<div class="ev' + cl + '"><span class="hh">' + heureSim(e.h).h + '</span><div class="c"><b>' + esc(e.titre) + '</b><span class="canal">' + esc(e.canal || '') + '</span>'
       + (e.consigne ? '<div class="consigne">' + esc(e.consigne) + '</div>' : '')
       + (!i && E.session.statut !== 'terminée' ? '<div style="margin-top:5px;display:flex;gap:6px"><button class="bt s" onclick="injecter(' + e.id + ')">Injecter maintenant</button><button class="bt s" onclick="ignorer(' + e.id + ')">Ignorer</button></div>' : '')
@@ -584,8 +599,17 @@ function evalAttendus(E, h) {
   var ev = E.joueur_evenements || [], ctrl = E.session.controles || {}, nbRet = 0, nbManq = 0;
   var monte = null;   // première montée au-dessus de la situation normale : seul un passage en NORMAL ultérieur vaut « retour à la normale »
   ev.forEach(function (e) { if (monte === null && e.type === 'niveau' && NIV[(e.donnees || {}).niveau] && NIV[e.donnees.niveau].o > 0) monte = Number(e.h_simulee); });
+  var VG = vigiesEtat(E), injEv = {}; (E.injections || []).forEach(function (i) { if (i.evenement_id) injEv[i.evenement_id] = i; });
   var lignes = ATT.map(function (a) {
-    var t = Number(a.h), tol = Number(a.tolerance_h), trouve = null;
+    var t = Number(a.h), tol = Number(a.tolerance_h), trouve = null, sansObjet = null;
+    if (a.test === 'vigie') {   // présence d'une Vigie : attendue après son appel, donc après l'activation du réseau par le joueur
+      if (VG.dec === null) { if (h >= t) sansObjet = 'En attente de l\'activation des Vigies (SMS niveau 2)'; }
+      else t = t + VG.dec;
+    }
+    if (a.test === 'releve') {   // relevé non transmis (Vigie pas encore en place) : rien à saisir
+      var rr = String(a.valeur).split('|'), evR = EVTS.filter(function (e) { return e.type === 'releve_vigie' && String((e.donnees || {}).point) === rr[0] && Math.abs(Number(e.h) - t) <= 0.5 && Math.abs(Number((e.donnees || {}).hauteur_m) - parseFloat(rr[1])) <= 0.011; })[0];
+      if (evR && injEv[evR.id] && injEv[evR.id].ignore) sansObjet = 'Sans objet : relevé non transmis (Vigie pas en place)';
+    }
     if (a.test === 'niveau_a') {   // niveau tenu à l'heure t (ex. pendant une décrue apparente)
       if (h >= t) {
         var nv = ev.filter(function (e) { return e.type === 'niveau' && Number(e.h_simulee) <= t + 0.01; }).sort(function (x, y) { return Number(x.h_simulee) - Number(y.h_simulee); });
@@ -607,7 +631,8 @@ function evalAttendus(E, h) {
       return false;
     })[0] || null;
     var st, sc;
-    if (trouve) {
+    if (sansObjet && !trouve) { st = sansObjet; sc = '#5c6f85'; }
+    else if (trouve) {
       var he = Number(trouve.h_simulee), late = he > t + tol;
       if (late) nbRet++;
       st = (trouve.manuel ? 'Constaté' : 'Fait') + ' à ' + heureSim(he).h + (late ? ' (retard ' + fr(he - t, 1) + ' h)' : he < t - tol ? ' (anticipé)' : ''); sc = late ? '#b5560a' : '#2e7d4f';
