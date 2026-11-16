@@ -407,7 +407,9 @@ function genererScenario(o) {
     for (var t = a.t; t <= b.t; t += dt) if (H(fr, t) < m.q) m = {q: H(fr, t), t: t};
     if (m.t != null && m.q < 0.75 * a.q && b.q > m.q * 1.25) creux.push({t: m.t, q: m.q, pic1: a, pic2: b, baisse: Math.round((1 - m.q / a.q) * 100)});
   }
-  var tFinCrise = premier(function (t) { return t > tMax && qF(t) < Math.max(Qmax * 0.3, 15) && hydrasDessus(t, 'n1').length === 0; }, tMax) || D;
+  // fin de crise : après le dernier pic (une décrue apparente suivie d'une reprise ne termine pas la crise)
+  var tDernierPic = creux.reduce(function (m, c) { return Math.max(m, c.pic2.t); }, tMax);
+  var tFinCrise = premier(function (t) { return t > tDernierPic && qF(t) < Math.max(Qmax * 0.3, 15) && hydrasDessus(t, 'n1').length === 0; }, tDernierPic) || D;
   var tDebutMontee = premier(function (t) { return qF(t) >= Math.min(30, Qmax * 0.35); }) || 0;
 
   // ---------- Vigies : appels de présence, puis relevés d'échelle transmis par SMS (saisis à la main par le joueur)
@@ -556,7 +558,8 @@ function genererScenario(o) {
     var phase = creux.filter(function (c) { return Math.abs(tm - c.t) < 1.5; })[0], monte = qF(tm) > qF(Math.max(0, tm - 1)) + 1;
     var tx = phase ? pick(["L'eau baisse bien, on peut lever l'alerte et rouvrir les routes ?", 'Les riverains demandent s\'ils peuvent rentrer chez eux, la rivière redescend.'])
       : monte ? pick(['Les services techniques voient la rivière monter vite. Faut-il prendre des mesures ?', 'Des riverains appellent, inquiets. Quelle est la situation ?', 'Faut-il fermer le parking en bord de rivière ?', 'De l\'eau arrive dans des garages, faut-il évacuer ?'])
-      : pick(["L'eau baisse, peut-on rouvrir la route ?", 'Quand pensez-vous lever l\'alerte ?', 'Le maire demande un point de situation.']);
+      : qF(tm) < qF(Math.max(0, tm - 1)) - 1 ? pick(["L'eau baisse, peut-on rouvrir la route ?", 'Quand pensez-vous lever l\'alerte ?', 'Le maire demande un point de situation.'])
+      : 'Le maire demande un point de situation.';   // débit stable : pas de « l'eau baisse » pendant une reprise
     ajout(tm, 'message', 'Appel : Mairie de ' + com, {de: 'Mairie de ' + com + ' (fictif)', texte: tx}, phase ? 'Piège : la décrue n\'est qu\'apparente. Attendu : refuser de lever l\'alerte en s\'appuyant sur la prévision.' : 'Attendu : réponse adaptée et entrée au journal.');
   }
   if (o.batardeau && tN1 != null) ajout(tN1 + 1.5, 'batardeau', "Oullins : batardeau de la passerelle posé", {code: 'BAT-S7', etat: 'posé', texte: "Les services techniques d'Oullins confirment la pose du batardeau.", apres: {action: 'SMS niveau 1', delai: 1.25, lib: 'Envoyer les SMS niveau 1 aux Mairies et aux Vigies'}}, "Répond au SMS de niveau 1 : n'arrive qu'une fois ce SMS envoyé par le joueur (1 h 15 après).");
