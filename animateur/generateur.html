@@ -559,7 +559,7 @@ function genererScenario(o) {
       : pick(["L'eau baisse, peut-on rouvrir la route ?", 'Quand pensez-vous lever l\'alerte ?', 'Le maire demande un point de situation.']);
     ajout(tm, 'message', 'Appel : Mairie de ' + com, {de: 'Mairie de ' + com + ' (fictif)', texte: tx}, phase ? 'Piège : la décrue n\'est qu\'apparente. Attendu : refuser de lever l\'alerte en s\'appuyant sur la prévision.' : 'Attendu : réponse adaptée et entrée au journal.');
   }
-  if (o.batardeau && tN1 != null) ajout(tN1 + 1.5, 'batardeau', "Oullins : batardeau de la passerelle posé", {code: 'BAT-S7', etat: 'posé', texte: "Les services techniques d'Oullins confirment la pose du batardeau."}, "Si le joueur n'a pas demandé la pose, le noter pour le débriefing.");
+  if (o.batardeau && tN1 != null) ajout(tN1 + 1.5, 'batardeau', "Oullins : batardeau de la passerelle posé", {code: 'BAT-S7', etat: 'posé', texte: "Les services techniques d'Oullins confirment la pose du batardeau.", apres: {action: 'SMS niveau 1', delai: 1.25, lib: 'Envoyer les SMS niveau 1 aux Mairies et aux Vigies'}}, "Répond au SMS de niveau 1 : n'arrive qu'une fois ce SMS envoyé par le joueur (1 h 15 après).");
   evts.sort(function (a, b) { return a.h - b.h; });
 
   // ---------- attendus de la procédure
