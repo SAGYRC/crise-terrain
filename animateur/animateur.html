@@ -68,6 +68,13 @@ main.console{display:grid;grid-template-columns:440px minmax(320px,1fr) minmax(3
 .ev .etat{flex:none;font-size:11.5px;font-weight:800;text-align:right;max-width:120px}
 .ev.futur{opacity:.72}
 .ev.now{border-color:var(--bleu);background:#e8f2fc}
+.ev.role{border-color:#c9b3dc;background:#f8f4fb}.ev.role.now{border-color:#7d3c98;background:#f1e8f7}
+.coche{display:flex!important;gap:8px;align-items:flex-start;font-weight:700;font-size:13px;margin-top:6px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--marine)}
+.coche input{width:auto!important;min-height:0!important;margin:2px 0 0;flex:none}
+.roles{background:#f8f4fb;border:1px solid #dccbe8;border-radius:10px;padding:8px 10px;margin-top:8px}
+.bcase{display:inline-block;width:11pt;height:11pt;border:1.4pt solid #0b3a78;border-radius:3pt}
+.btb td.hh{white-space:nowrap;font-weight:900;color:#0b3a78}.btb td small{color:#4a6a8f;font-weight:700}
+.bcond{display:block;font-size:8.5pt;color:#7d3c98;font-weight:800;margin-top:2px}
 .niveaux{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .niveaux>div{border-radius:10px;background:var(--fond);padding:10px 12px}
 .badge{display:inline-block;color:#fff;border-radius:99px;padding:2px 12px;font-weight:900;font-size:15px}
@@ -233,6 +240,10 @@ input[type=text],input[type=email],input[type=password],input[type=number],selec
         <div><label for="nvJoueur">Joueur (nom ou poste)</label><input id="nvJoueur" type="text" placeholder="ex. C. Martin – astreinte"></div>
         <div><label for="nvVitesse">Rythme</label><select id="nvVitesse"></select></div>
       </div>
+      <div class="roles"><div style="font-weight:900;font-size:13px;color:#5b2c6f">Rôles joués par des collègues</div>
+        <div style="font-size:12px;color:var(--gris)">Leurs événements restent dans la liste mais ne sont pas injectés automatiquement : le collègue les joue à l'heure prévue, avec sa feuille de rôle imprimée.</div>
+        <label class="coche"><input type="checkbox" id="nvRAppels"><span>Appels et SMS : Vigies, riverains, communes, partenaires</span></label>
+        <label class="coche"><input type="checkbox" id="nvRTerrain"><span>Agent de terrain : désordres envoyés depuis le site des agents, avec photo</span></label></div>
       <div class="rang" style="margin-top:14px"><button class="bt p" id="btNouvelle">Créer la session</button></div>
       <div id="msgSessions"></div>
     </div>
@@ -289,8 +300,13 @@ input[type=text],input[type=email],input[type=password],input[type=number],selec
     <div class="col">
       <div class="carte">
         <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Événements du scénario</h2><span style="font-size:12px;color:var(--gris)" id="cNbEv"></span></div>
-        <div id="cEvts" class="defile" style="max-height:560px"></div>
+        <div class="roles" id="cRoles"></div>
+        <div id="cEvts" class="defile" style="max-height:520px"></div>
         <div class="rang"><button class="bt p" id="btLibre">Injecter un événement libre…</button></div>
+        <div class="rang" style="align-items:center"><span style="font-size:12px;font-weight:800;color:var(--gris)">Imprimer :</span>
+          <button class="bt s" onclick="imprimerEvenements('tout')">Liste complète (animateur)</button>
+          <button class="bt s" onclick="imprimerEvenements('appels')">Feuille « appels et SMS »</button>
+          <button class="bt s" onclick="imprimerEvenements('terrain')">Feuille « agent de terrain »</button></div>
       </div>
     </div>
 
@@ -458,7 +474,7 @@ async function supprimer(id, code) {
 function nouveauCode() { var a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', c = ''; for (var i = 0; i < 6; i++) c += a[Math.floor(Math.random() * a.length)]; return c; }
 $('btNouvelle').onclick = async function () {
   for (var essai = 0; essai < 5; essai++) {
-    var r = await sb.from('sessions').insert({code: nouveauCode(), scenario_id: +$('nvScen').value, joueur: $('nvJoueur').value.trim() || null, vitesse_min: +$('nvVitesse').value}).select('id').single();
+    var r = await sb.from('sessions').insert({code: nouveauCode(), scenario_id: +$('nvScen').value, joueur: $('nvJoueur').value.trim() || null, vitesse_min: +$('nvVitesse').value, roles: {appels: $('nvRAppels').checked, terrain: $('nvRTerrain').checked}}).select('id').single();
     if (!r.error) return ouvrir(r.data.id);
     if (!/duplicate|unique/i.test(r.error.message)) return message('msgSessions', erreurTexte(r.error), 'err');
   }
@@ -564,14 +580,40 @@ function vigiesEtat(E) {
   return {act: act, plan: plan, dec: act === null || plan === null ? null : Math.max(act + 0.17 - plan, -1)};
 }
 
+// ---------- rôles joués par des collègues : leurs événements ne sont pas injectés automatiquement
+function roleDe(e) { return e.type === 'consigne' ? null : e.type === 'signalement' ? 'terrain' : 'appels'; }
+function rolesSession(E) { return ((E || ETAT || {}).session || {}).roles || {}; }
+function nomPoint(c) { var p = POINTS.filter(function (x) { return x[0] === String(c); })[0]; return p ? p[1] : (c || ''); }
+function actionH(E, motif) {   // heure simulée à laquelle le joueur a coché une action (null sinon)
+  var r = null, m = String(motif || '').toLowerCase(); if (!m) return null;
+  (E.joueur_evenements || []).forEach(function (e) { var d = e.donnees || {};
+    if (e.type === 'action' && d.fait !== false && String(d.libelle || '').toLowerCase().indexOf(m) >= 0) r = r === null ? Number(e.h_simulee) : Math.min(r, Number(e.h_simulee)); });
+  return r;
+}
+async function changerRole(role, on) {
+  var r = Object.assign({}, rolesSession()); r[role] = !!on;
+  var x = await sb.from('sessions').update({roles: r}).eq('id', SESSION); if (x.error) alert(erreurTexte(x.error)); rafraichir();
+}
+async function marquerJoue(id) { var r = await sb.rpc('animateur_marquer_joue', {p_session: SESSION, p_evenement: id}); if (r.error) alert(erreurTexte(r.error)); rafraichir(); }
+function dessinerRoles(E) {
+  var r = rolesSession(E), fini = E.session.statut === 'terminée';
+  if (document.activeElement && document.activeElement.closest && document.activeElement.closest('#cRoles')) return;
+  $('cRoles').innerHTML = '<div style="font-weight:900;font-size:12.5px;color:#5b2c6f">Rôles joués par des collègues <span style="font-weight:700;color:var(--gris)">(événements non injectés automatiquement)</span></div>'
+    + '<label class="coche"><input type="checkbox"' + (r.appels ? ' checked' : '') + (fini ? ' disabled' : '') + ' onchange="changerRole(\'appels\', this.checked)"><span>Appels et SMS : Vigies, riverains, communes, partenaires</span></label>'
+    + '<label class="coche"><input type="checkbox"' + (r.terrain ? ' checked' : '') + (fini ? ' disabled' : '') + ' onchange="changerRole(\'terrain\', this.checked)"><span>Agent de terrain : désordres envoyés depuis le site des agents</span></label>';
+}
+
 function evenements(E, h) {
-  var VG = vigiesEtat(E);
+  var VG = vigiesEtat(E), RL = rolesSession(E); dessinerRoles(E);
   var inj = {}; (E.injections || []).forEach(function (i) { if (i.evenement_id) inj[i.evenement_id] = i; });
   var libres = (E.injections || []).filter(function (i) { return !i.evenement_id; });
   var html = '', n = 0;
   EVTS.forEach(function (e) {
-    var i = inj[e.id], etat, ec, cl = '';
-    if (i && i.ignore) { etat = /^Non transmis/.test(i.consigne || '') ? 'Non transmis : Vigie pas encore en place' : 'Ignoré'; ec = '#9aa9ba'; }
+    var i = inj[e.id], etat, ec, cl = '', role = roleDe(e), manuel = !!(role && RL[role]), ap = (e.donnees || {}).apres;
+    if (i && i.ignore && /^Joué/.test(i.consigne || '')) { etat = 'Joué par un collègue à ' + heureSim(Number(i.h)).h; ec = '#2e7d4f'; n++; }
+    else if (i && i.ignore) { etat = /^Non transmis/.test(i.consigne || '') ? 'Non transmis : Vigie pas encore en place' : 'Ignoré'; ec = '#9aa9ba'; }
+    else if (!i && manuel) { var dm = e.h - h; etat = dm > 0 ? 'À jouer par le collègue dans ' + (dm < 1 ? Math.round(dm * 60) + ' min' : fr(dm, 1) + ' h') : 'À jouer maintenant par le collègue'; ec = '#7d3c98'; cl = ' role' + (dm > 0 ? ' futur' : ' now'); }
+    else if (!i && ap && ap.action && e.h <= h && actionH(E, ap.action) === null) { etat = 'En attente : le joueur n\'a pas encore fait « ' + esc(ap.lib || ap.action) + ' »'; ec = '#b5560a'; cl = ' futur'; }
     else if (i && e.type === 'consigne') { etat = 'À faire maintenant'; ec = '#b5560a'; cl = (h - e.h < 1 ? ' now' : ''); n++; }
     else if (i && i.recu_le) { etat = 'Reçu dans QGIS à ' + hReel(i.recu_le); ec = '#2e7d4f'; n++; }
     else if (i) { etat = 'Envoyé, en attente de QGIS'; ec = '#0a6fcf'; cl = ' now'; n++; }
@@ -579,7 +621,8 @@ function evenements(E, h) {
     else { var dh = e.h + (e.type === 'presence_vigie' && VG.dec !== null ? VG.dec : 0) - h; if (dh < 0) dh = 0; etat = 'Dans ' + (dh < 1 ? Math.round(dh * 60) + ' min' : fr(dh, 1) + ' h') + ' (simulées)'; ec = '#5c6f85'; cl = ' futur'; }
     html += '<div class="ev' + cl + '"><span class="hh">' + heureSim(e.h).h + '</span><div class="c"><b>' + esc(e.titre) + '</b><span class="canal">' + esc(e.canal || '') + '</span>'
       + (e.consigne ? '<div class="consigne">' + esc(e.consigne) + '</div>' : '')
-      + (!i && E.session.statut !== 'terminée' ? '<div style="margin-top:5px;display:flex;gap:6px"><button class="bt s" onclick="injecter(' + e.id + ')">Injecter maintenant</button><button class="bt s" onclick="ignorer(' + e.id + ')">Ignorer</button></div>' : '')
+      + (!i && E.session.statut !== 'terminée' ? '<div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">' + (manuel ? '<button class="bt s p" onclick="marquerJoue(' + e.id + ')">Joué</button>' : '')
+          + '<button class="bt s" onclick="injecter(' + e.id + ')">' + (manuel ? 'Injecter (secours)' : 'Injecter maintenant') + '</button><button class="bt s" onclick="ignorer(' + e.id + ')">Ignorer</button></div>' : '')
       + '</div><span class="etat" style="color:' + ec + '">' + etat + '</span></div>';
   });
   libres.forEach(function (i) {
@@ -739,7 +782,7 @@ function construireBilan(E, h, R) {
   var s = E.session, faits = R.lignes.filter(function (l) { return l.fait; }).length, tot = R.lignes.length;
   var aHeure = faits - R.nbRet, taux = tot ? Math.round(100 * faits / tot) : 100;
   var ton = taux >= 90 && !R.nbManq ? ['#1e8449', 'Très bonne application de la procédure'] : taux >= 60 ? ['#e67e22', 'Procédure partiellement appliquée'] : ['#c0392b', 'Procédure insuffisamment appliquée'];
-  var hs = heureSim(h), injs = (E.injections || []).filter(function (i) { return !i.ignore; }), evs = E.joueur_evenements || [];
+  var hs = heureSim(h), injs = (E.injections || []).filter(function (i) { return !i.ignore || /^Joué/.test(i.consigne || ''); }), evs = E.joueur_evenements || [];
   function kpi(l, v, sub, c) { return '<div class="bk"' + (c ? ' style="background:' + c + '"' : '') + '><div class="l">' + l + '</div><div class="v">' + v + '</div><div class="s">' + sub + '</div></div>'; }
   function pill(t, c, f) { return '<span class="bp" style="background:' + c + ';color:' + (f || '#fff') + '">' + t + '</span>'; }
   function statut(l) {
@@ -773,13 +816,71 @@ function construireBilan(E, h, R) {
     + '<div class="bsec"><span>3</span><h2>Événements injectés par l\'animateur</h2></div>'
     + (injs.length ? '<table class="btb"><tr><th>Heure simulée</th><th>Événement</th><th>Reçu par le joueur</th></tr>' + injs.map(function (i, k) {
         return '<tr' + (k % 2 ? ' class="z"' : '') + '><td><b>' + heureSim(Number(i.h)).h + '</b></td><td>' + esc(i.titre || i.type) + '</td><td>'
-          + (i.type === 'consigne' ? pill('consigne', '#eef2f6', '#5d6d7e') : i.recu_le ? pill('reçu à ' + hReel(i.recu_le), '#d5f5e3', '#1e8449') : pill('non reçu', '#fadbd8', '#922b21')) + '</td></tr>'; }).join('') + '</table>'
+          + (i.type === 'consigne' ? pill('consigne', '#eef2f6', '#5d6d7e') : i.ignore ? pill('joué par un collègue', '#eee3f5', '#5b2c6f') : i.recu_le ? pill('reçu à ' + hReel(i.recu_le), '#d5f5e3', '#1e8449') : pill('non reçu', '#fadbd8', '#922b21')) + '</td></tr>'; }).join('') + '</table>'
        : '<div class="benc ne">Aucun événement injecté.</div>')
     + '<div class="bsec"><span>4</span><h2>Notes de débriefing</h2></div>'
     + '<div class="benc" style="white-space:pre-wrap">' + esc(s.note || 'Aucune note saisie.') + '</div>'
     + '<div class="bsrc">SAGYRC · Outil d\'exercice de gestion de crise – Yzeron. Exercice fictif : les données de ce document sont simulées.</div>';
   return b;
 }
+/* ------------------------------------------------------------ impression de la liste des événements et des feuilles de rôle */
+function conditionEv(e) {
+  var d = e.donnees || {};
+  if (e.type === 'presence_vigie') return 'Seulement après avoir reçu le SMS de niveau 2 de l\'astreinte (répondre une dizaine de minutes après).';
+  if (estVigie(e)) return 'Seulement si la Vigie est en place (SMS de niveau 2 reçu de l\'astreinte).';
+  if (d.apres && d.apres.action) return 'Seulement après que l\'astreinte a fait : « ' + (d.apres.lib || d.apres.action) + ' ».';
+  return '';
+}
+function ficheAppel(e) {
+  var d = e.donnees || {}, court = function (c) { return nomPoint(c).replace(/ \(.*\)$/, ''); };
+  if (e.type === 'presence_vigie') return {qui: 'Vigie – ' + nomPoint(d.point), moyen: 'SMS ou appel',
+    texte: d.texte || (d.statut === 'indisponible' ? 'Je ne suis pas disponible pour cet épisode.' : 'Bien reçu. Je suis en place au point d\'observation ' + court(d.point) + '.')};
+  if (e.type === 'releve_vigie') return {qui: 'Vigie – ' + nomPoint(d.point), moyen: 'SMS',
+    texte: court(d.point) + ' : ' + fr(d.hauteur_m, 2) + ' m' + (d.tendance === 'montée' ? ', en montée' : d.tendance === 'baisse' ? ', en baisse' : d.tendance === 'stable' ? ', stable' : '') + (d.commentaire ? '. ' + d.commentaire : '') + '.'};
+  if (e.type === 'message') return {qui: String(d.de || '').replace(/\s*\(fictif\)/i, ''), moyen: 'Appel (ou SMS, courriel)', texte: d.texte || e.titre};
+  var tx = String(d.texte || ''), k = tx.indexOf(' : ');   // clapet, batardeau : « Riverain : l'eau remonte… »
+  return {qui: k > 0 && k < 45 ? tx.slice(0, k) : 'Riverain ou agent communal', moyen: 'Appel', texte: (function (x) { return x.charAt(0).toUpperCase() + x.slice(1); })(k > 0 && k < 45 ? tx.slice(k + 3) : tx || e.titre) + ' [' + e.titre + ']'};
+}
+function imprimerEvenements(mode) {
+  var E = ETAT, s = E.session, h = Number(E.h), vit = Number(s.vitesse_min), enCours = s.statut === 'en cours', RL = rolesSession(E);
+  var evs = EVTS.filter(function (e) { return mode === 'tout' ? true : roleDe(e) === mode; }).slice().sort(function (a, b) { return a.h - b.h; });
+  function reel(e) {   // heure réelle prévue, valable sans pause ni saut dans le temps
+    if (s.statut === 'terminée') return '';
+    if (!enCours) return 'T0 + ' + Math.round(e.h * vit) + ' min';
+    return e.h <= h ? 'passé' : new Date(Date.now() + (e.h - h) * vit * 60000).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+  }
+  function hh(e) { return '<td class="hh">' + heureSim(Number(e.h)).h + '<br><small>H+' + fr(e.h, e.h % 1 ? 1 : 0) + '</small></td><td class="hh" style="color:#7d3c98">' + reel(e) + '</td>'; }
+  var titres = {tout: ['Liste des événements du scénario', 'Document de l\'animateur'], appels: ['Feuille de rôle – appels et SMS', 'Vigies, riverains, communes, partenaires'], terrain: ['Feuille de rôle – agent de terrain', 'Désordres à signaler depuis le site des agents']};
+  var b = '<div class="bent"><img src="logo_sagyrc.png" alt="SAGYRC"><div class="t"><h1>' + titres[mode][0] + ' <span class="bexo">EXERCICE</span></h1>'
+    + '<div class="s1">' + esc(E.scenario.nom) + '</div><div class="s2">' + titres[mode][1] + ' · session ' + esc(s.code) + ' · rythme : 1 h simulée = ' + fr(vit, vit % 1 ? 1 : 0) + ' min · édité le ' + new Date().toLocaleString('fr-FR') + '</div></div></div>';
+  var note = '<b>Heure réelle prévue</b> : ' + (enCours ? 'calculée à l\'impression, pour un exercice qui se poursuit au même rythme.' : '« T0 » est l\'heure réelle de démarrage de l\'exercice.')
+    + ' Elle n\'est plus valable si l\'animateur met l\'exercice en pause ou avance l\'horloge : il vous donne alors la nouvelle heure simulée, qui fait foi.';
+  if (!evs.length) b += '<div class="benc ne">Aucun événement de ce type dans le scénario.</div>';
+  else if (mode === 'appels') {
+    b += '<div class="benc"><b>Votre rôle</b> : vous jouez les Vigies, les riverains, les communes et les partenaires. À l\'heure indiquée, <b>appelez le téléphone d\'astreinte ou envoyez le SMS</b> avec le texte proposé, que vous pouvez dire avec vos mots. '
+      + 'Respectez les conditions notées en violet : une Vigie ne répond pas tant qu\'elle n\'a pas été prévenue. Commencez chaque appel et chaque SMS par « <b>EXERCICE</b> ». Cochez la ligne une fois faite.<br>' + note + '</div>'
+      + '<table class="btb"><tr><th>Heure simulée</th><th>Heure réelle prévue</th><th>Vous êtes</th><th>Moyen</th><th>Ce que vous dites ou écrivez</th><th>Fait</th></tr>'
+      + evs.map(function (e, k) { var f = ficheAppel(e), c = conditionEv(e);
+          return '<tr' + (k % 2 ? ' class="z"' : '') + '>' + hh(e) + '<td><b>' + esc(f.qui) + '</b></td><td>' + esc(f.moyen) + '</td><td>« ' + esc(f.texte) + ' »' + (c ? '<span class="bcond">' + esc(c) + '</span>' : '') + '</td><td><span class="bcase"></span></td></tr>'; }).join('') + '</table>';
+  } else if (mode === 'terrain') {
+    b += '<div class="benc"><b>Votre rôle</b> : vous jouez un agent de terrain. À l\'heure indiquée, envoyez le désordre depuis le <b>site des agents</b> (onglet « Signaler ») : type, gravité, description, avec une <b>photo</b>. '
+      + 'Si vous n\'êtes pas sur place, précisez le lieu dans la description. Commencez la description par « <b>EXERCICE</b> ». Cochez la ligne une fois envoyée.<br>' + note + '</div>'
+      + '<table class="btb"><tr><th>Heure simulée</th><th>Heure réelle prévue</th><th>Lieu</th><th>Type et gravité</th><th>Description à saisir</th><th>Photo</th><th>Fait</th></tr>'
+      + evs.map(function (e, k) { var d = e.donnees || {};
+          return '<tr' + (k % 2 ? ' class="z"' : '') + '>' + hh(e) + '<td><b>' + esc(nomPoint(d.point)) + '</b></td><td>' + esc(d.type || 'Autre') + '<br><small>' + esc(d.gravite || '') + '</small></td><td>' + esc(d.description || e.titre) + '</td><td><span class="bcase"></span></td><td><span class="bcase"></span></td></tr>'; }).join('') + '</table>';
+  } else {
+    var lib = {appels: 'joué par un collègue (appels et SMS)', terrain: 'joué par un collègue (agent de terrain)'};
+    b += '<div class="benc"><b>Rôles joués par des collègues</b> : ' + (RL.appels || RL.terrain ? [RL.appels ? 'appels et SMS' : '', RL.terrain ? 'agent de terrain' : ''].filter(Boolean).join(' ; ') + '. Leurs événements ne sont pas injectés automatiquement.' : 'aucun, tous les événements sont injectés automatiquement.')
+      + '<br>' + note + '</div>'
+      + '<table class="btb"><tr><th>Heure simulée</th><th>Heure réelle prévue</th><th>Événement</th><th>Transmission</th><th>Consigne pour l\'animateur</th></tr>'
+      + evs.map(function (e, k) { var d = e.donnees || {}, r = roleDe(e), c = conditionEv(e);
+          return '<tr' + (k % 2 ? ' class="z"' : '') + '>' + hh(e) + '<td><b>' + esc(e.titre) + '</b>' + (d.texte || d.description ? '<br>' + esc(d.texte || d.description) : '') + (c ? '<span class="bcond">' + esc(c) + '</span>' : '') + '</td><td>'
+            + (e.type === 'consigne' ? 'note pour l\'animateur' : r && RL[r] ? lib[r] : 'injecté automatiquement') + '</td><td>' + esc(e.consigne || '') + '</td></tr>'; }).join('') + '</table>';
+  }
+  b += '<div class="bsrc">SAGYRC · Outil d\'exercice de gestion de crise – Yzeron. Exercice fictif : les personnes et les situations de ce document sont simulées.</div>';
+  $('bilan').innerHTML = b; window.print();
+}
+
 $('btBilan').onclick = function () {
   var E = ETAT, h = Number(E.h), R = evalAttendus(E, h);
   $('bilan').innerHTML = construireBilan(E, h, R); window.print();
